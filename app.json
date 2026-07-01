@@ -1,4 +1,16 @@
 {
-  "name": "MiTiendaApp",
-  "displayName": "Mi Tienda"
+  "expo": {
+    "name": "MiTiendita",
+    "slug": "mi-tiendita",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "android": {
+      "package": "com.mitiendaapp"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "131fa464-f020-4150-904f-4b0ea326d78e"
+      }
+    }
+  }
 }
