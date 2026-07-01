@@ -1,0 +1,7 @@
+<resources>
+    <!-- Tema base de la aplicación. -->
+    <style name="AppTheme" parent="Theme.AppCompat.Light.NoActionBar">
+        <item name="android:editTextBackground">@android:color/transparent</item>
+        <item name="android:statusBarColor">#2196F3</item>
+    </style>
+</resources>

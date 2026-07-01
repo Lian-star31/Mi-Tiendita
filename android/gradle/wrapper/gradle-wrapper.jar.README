@@ -1,0 +1,16 @@
+Este archivo es un marcador de posición.
+
+El binario `gradle-wrapper.jar` NO se incluye en el repositorio porque es
+un archivo binario. Se genera automáticamente al ejecutar por primera vez
+`npx @react-native-community/cli@latest init` o descargando Gradle.
+
+Si clonaste este proyecto y falta el wrapper, ejecútalo así:
+
+    cd android
+    gradle wrapper --gradle-version 8.0.1
+
+O simplemente crea el proyecto base con:
+
+    npx @react-native-community/cli@latest init MiTiendaApp --version 0.72.6
+
+y copia dentro la carpeta `src/` y los archivos de este repositorio.

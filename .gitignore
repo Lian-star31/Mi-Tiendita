@@ -1,0 +1,25 @@
+# dependencias
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# React Native / Metro
+.metro-health-check*
+.expo/
+
+# Android
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties
+*.keystore
+!debug.keystore
+*.apk
+*.aab
+
+# iOS (no usado, pero por si acaso)
+ios/Pods/
+
+# Sistema
+.DS_Store
+*.log
