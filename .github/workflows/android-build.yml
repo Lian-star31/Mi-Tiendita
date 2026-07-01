@@ -38,33 +38,6 @@ jobs:
       - name: Install dependencies
         run: npm install --legacy-peer-deps
 
-      - name: Fix react-native-gradle-plugin path
-        run: |
-          if [ ! -d "node_modules/react-native-gradle-plugin" ]; then
-            PLUGIN=$(find node_modules/react-native -maxdepth 5 -name "react-native-gradle-plugin" -type d 2>/dev/null | head -1)
-            if [ -n "$PLUGIN" ]; then
-              echo "Found plugin inside react-native at: $PLUGIN"
-              cp -r "$(realpath $PLUGIN)" node_modules/react-native-gradle-plugin
-            else
-              echo "Plugin not found inside react-native, searching everywhere..."
-              PLUGIN=$(find node_modules -maxdepth 5 -name "react-native-gradle-plugin" -type d 2>/dev/null | head -1)
-              if [ -n "$PLUGIN" ]; then
-                cp -r "$(realpath $PLUGIN)" node_modules/react-native-gradle-plugin
-              fi
-            fi
-          fi
-
-      - name: Patch Kotlin version in react-native-gradle-plugin
-        run: |
-          for f in node_modules/react-native-gradle-plugin/build.gradle.kts node_modules/react-native-gradle-plugin/build.gradle; do
-            if [ -f "$f" ]; then
-              sed -i 's/kotlin("jvm") version "[0-9\.]*"/kotlin("jvm") version "1.8.0"/g' "$f"
-              sed -i 's/kotlin_version = "[0-9\.]*"/kotlin_version = "1.8.0"/g' "$f"
-              sed -i 's/"org.jetbrains.kotlin:kotlin-gradle-plugin:[0-9\.]*"/"org.jetbrains.kotlin:kotlin-gradle-plugin:1.8.0"/g' "$f"
-              echo "Patched: $f"
-              grep -n "kotlin" "$f" | head -5 || true
-            fi
-          done
 
       - name: Build Android APK
         run: |
