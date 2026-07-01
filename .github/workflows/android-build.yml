@@ -36,7 +36,22 @@ jobs:
           gradle-version: '8.0.1'
 
       - name: Install dependencies
-        run: npm install
+        run: npm install --legacy-peer-deps
+
+      - name: Fix react-native-gradle-plugin path
+        run: |
+          if [ ! -d "node_modules/react-native-gradle-plugin" ]; then
+            PLUGIN=$(find node_modules -maxdepth 5 -name "react-native-gradle-plugin" -type d | head -1)
+            if [ -n "$PLUGIN" ]; then
+              echo "Found plugin at: $PLUGIN"
+              ln -sf "$(pwd)/$PLUGIN" node_modules/react-native-gradle-plugin
+            else
+              echo "Plugin not found, installing explicitly..."
+              npm install react-native-gradle-plugin --legacy-peer-deps
+            fi
+          else
+            echo "Plugin found at node_modules/react-native-gradle-plugin"
+          fi
 
       - name: Build Android APK
         run: |
