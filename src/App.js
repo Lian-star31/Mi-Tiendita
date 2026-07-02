@@ -19,6 +19,7 @@ import {initDatabase} from './db/database';
 import HomeScreen from './screens/HomeScreen';
 import ResultScreen from './screens/ResultScreen';
 import BarcodeScanner from './components/BarcodeScanner';
+import AgregarProductoScreen from './screens/AgregarProductoScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -48,7 +49,7 @@ export default function App() {
         ) : (
           <>
             <ActivityIndicator size="large" color="#2196F3" />
-            <Text style={styles.loadingText}>Cargando Mi Tienda...</Text>
+            <Text style={styles.loadingText}>Cargando catálogo de productos...</Text>
           </>
         )}
       </View>
@@ -78,6 +79,11 @@ export default function App() {
           name="Result"
           component={ResultScreen}
           options={{title: 'Producto'}}
+        />
+        <Stack.Screen
+          name="AgregarProducto"
+          component={AgregarProductoScreen}
+          options={{title: 'Agregar producto'}}
         />
       </Stack.Navigator>
     </NavigationContainer>
