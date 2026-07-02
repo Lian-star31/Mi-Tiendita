@@ -47,11 +47,6 @@ public class MainApplication extends Application implements ReactApplication {
   }
 
   @Override
-  public ReactNativeHost getDefaultReactNativeHost() {
-    return mReactNativeHost;
-  }
-
-  @Override
   public void onCreate() {
     super.onCreate();
     SoLoader.init(this, false);
