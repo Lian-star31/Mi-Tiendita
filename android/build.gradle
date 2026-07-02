@@ -1,4 +1,3 @@
-// Configuración de nivel superior de Gradle (aplica a todos los sub-proyectos).
 buildscript {
     ext {
         buildToolsVersion = "33.0.0"
@@ -6,6 +5,7 @@ buildscript {
         compileSdkVersion = 33
         targetSdkVersion = 33
         ndkVersion = "23.1.7779620"
+        kotlinVersion = "1.8.0"
     }
     repositories {
         google()
