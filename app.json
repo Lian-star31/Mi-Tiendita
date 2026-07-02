@@ -1,11 +1,18 @@
 {
+  "name": "MiTiendaApp",
+  "displayName": "MiTiendita",
   "expo": {
     "name": "MiTiendita",
     "slug": "mi-tiendita",
     "version": "1.0.0",
     "orientation": "portrait",
+    "icon": "./src/assets/logo_tienda.png",
     "android": {
-      "package": "com.mitiendaapp"
+      "package": "com.mitiendaapp",
+      "adaptiveIcon": {
+        "foregroundImage": "./src/assets/logo_tienda.png",
+        "backgroundColor": "#FFFFFF"
+      }
     },
     "extra": {
       "eas": {
