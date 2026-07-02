@@ -1,0 +1,9 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'>
+  <rect width='200' height='200' rx='20' fill='#2196F3'/>
+  <rect x='40' y='90' width='120' height='80' rx='5' fill='white'/>
+  <polygon points='20,95 100,30 180,95' fill='white'/>
+  <rect x='80' y='120' width='40' height='50' rx='3' fill='#2196F3'/>
+  <rect x='55' y='105' width='30' height='30' rx='3' fill='#2196F3'/>
+  <rect x='115' y='105' width='30' height='30' rx='3' fill='#2196F3'/>
+  <text x='100' y='185' font-family='Arial' font-size='14' font-weight='bold' fill='white' text-anchor='middle'>MiTiendita</text>
+</svg>

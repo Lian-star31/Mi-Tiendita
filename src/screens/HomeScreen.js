@@ -1,16 +1,4 @@
-/**
- * HomeScreen.js
- * -----------------------------------------------------------------------------
- * Pantalla de inicio.
- *
- * Contiene:
- *   - Logo de la tienda (200x200px, centrado)
- *   - Nombre de la tienda (texto grande, 28px)
- *   - Botón grande "ESCANEAR CÓDIGO" (~15cm x 15cm, azul)
- *   - Campo de búsqueda manual (texto 24px)
- * -----------------------------------------------------------------------------
- */
-import React, {useState} from 'react';
+import React, {useState, useEffect} from 'react';
 import {
   Alert,
   Dimensions,
@@ -22,24 +10,31 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {buscarProducto} from '../db/database';
 
-// Nombre de la tienda (dato temporal solicitado).
-const NOMBRE_TIENDA = 'Mi Tienda';
-
-// Aproximación de 15 cm en píxeles independientes de densidad.
-// 1 cm ≈ 38 dp. Se limita al ancho de pantalla para que quepa.
 const CM = 38;
 const LADO_BOTON = Math.min(15 * CM, Dimensions.get('window').width - 40);
 
 export default function HomeScreen({navigation}) {
   const [busqueda, setBusqueda] = useState('');
+  const [nombreTienda, setNombreTienda] = useState('Mi Tienda');
+  const [editandoNombre, setEditandoNombre] = useState(false);
+  const [nombreTemp, setNombreTemp] = useState('');
 
-  /**
-   * Búsqueda manual: consulta SQLite por código o nombre y navega al
-   * resultado. Si no hay coincidencias, avisa al usuario.
-   */
+  useEffect(() => {
+    AsyncStorage.getItem('nombre_tienda').then(v => {
+      if (v) setNombreTienda(v);
+    });
+  }, []);
+
+  const guardarNombre = async () => {
+    if (!nombreTemp.trim()) return;
+    await AsyncStorage.setItem('nombre_tienda', nombreTemp.trim());
+    setNombreTienda(nombreTemp.trim());
+    setEditandoNombre(false);
+  };
+
   const onBuscarManual = async () => {
     const termino = busqueda.trim();
     if (!termino) {
@@ -59,17 +54,32 @@ export default function HomeScreen({navigation}) {
       style={styles.container}
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled">
-      {/* Logo de la tienda */}
+
       <Image
         source={require('../assets/logo_tienda.png')}
         style={styles.logo}
         resizeMode="contain"
       />
 
-      {/* Nombre de la tienda */}
-      <Text style={styles.nombreTienda}>{NOMBRE_TIENDA}</Text>
+      {editandoNombre ? (
+        <View style={styles.editarNombreRow}>
+          <TextInput
+            style={styles.inputNombre}
+            value={nombreTemp}
+            onChangeText={setNombreTemp}
+            placeholder="Nombre de tu tienda"
+            autoFocus
+          />
+          <TouchableOpacity style={styles.btnGuardar} onPress={guardarNombre}>
+            <Text style={styles.btnGuardarTexto}>✓</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <TouchableOpacity onPress={() => { setNombreTemp(nombreTienda); setEditandoNombre(true); }}>
+          <Text style={styles.nombreTienda}>{nombreTienda} ✏️</Text>
+        </TouchableOpacity>
+      )}
 
-      {/* Botón grande para abrir la cámara y escanear */}
       <TouchableOpacity
         style={styles.botonEscanear}
         activeOpacity={0.8}
@@ -77,7 +87,6 @@ export default function HomeScreen({navigation}) {
         <Text style={styles.botonEscanearTexto}>ESCANEAR{'\n'}CÓDIGO</Text>
       </TouchableOpacity>
 
-      {/* Campo de búsqueda manual */}
       <Text style={styles.etiquetaBusqueda}>Búsqueda manual:</Text>
       <TextInput
         style={styles.inputBusqueda}
@@ -96,70 +105,18 @@ export default function HomeScreen({navigation}) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
-  content: {
-    alignItems: 'center',
-    paddingVertical: 24,
-    paddingHorizontal: 20,
-  },
-  logo: {
-    width: 200,
-    height: 200,
-    marginBottom: 12,
-  },
-  nombreTienda: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#000000',
-    marginBottom: 24,
-    textAlign: 'center',
-  },
-  botonEscanear: {
-    width: LADO_BOTON,
-    height: LADO_BOTON,
-    backgroundColor: '#2196F3',
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 28,
-    elevation: 4,
-  },
-  botonEscanearTexto: {
-    color: '#FFFFFF',
-    fontSize: 34,
-    fontWeight: 'bold',
-    textAlign: 'center',
-  },
-  etiquetaBusqueda: {
-    alignSelf: 'flex-start',
-    fontSize: 18,
-    color: '#000000',
-    marginBottom: 8,
-  },
-  inputBusqueda: {
-    width: '100%',
-    fontSize: 24,
-    color: '#000000',
-    borderWidth: 2,
-    borderColor: '#2196F3',
-    borderRadius: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    marginBottom: 16,
-  },
-  botonBuscar: {
-    width: '100%',
-    backgroundColor: '#2196F3',
-    borderRadius: 10,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  botonBuscarTexto: {
-    color: '#FFFFFF',
-    fontSize: 22,
-    fontWeight: 'bold',
-  },
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  content: { alignItems: 'center', paddingVertical: 24, paddingHorizontal: 20 },
+  logo: { width: 200, height: 200, marginBottom: 8 },
+  nombreTienda: { fontSize: 28, fontWeight: 'bold', color: '#000', marginBottom: 20, textAlign: 'center' },
+  editarNombreRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
+  inputNombre: { flex: 1, fontSize: 22, borderBottomWidth: 2, borderColor: '#2196F3', paddingHorizontal: 8, color: '#000' },
+  btnGuardar: { backgroundColor: '#2196F3', borderRadius: 8, padding: 10, marginLeft: 8 },
+  btnGuardarTexto: { color: '#fff', fontSize: 20, fontWeight: 'bold' },
+  botonEscanear: { width: LADO_BOTON, height: LADO_BOTON, backgroundColor: '#2196F3', borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginBottom: 28, elevation: 4 },
+  botonEscanearTexto: { color: '#fff', fontSize: 34, fontWeight: 'bold', textAlign: 'center' },
+  etiquetaBusqueda: { alignSelf: 'flex-start', fontSize: 18, color: '#000', marginBottom: 8 },
+  inputBusqueda: { width: '100%', fontSize: 24, color: '#000', borderWidth: 2, borderColor: '#2196F3', borderRadius: 10, paddingHorizontal: 16, paddingVertical: 12, marginBottom: 16 },
+  botonBuscar: { width: '100%', backgroundColor: '#2196F3', borderRadius: 10, paddingVertical: 14, alignItems: 'center' },
+  botonBuscarTexto: { color: '#fff', fontSize: 22, fontWeight: 'bold' },
 });
