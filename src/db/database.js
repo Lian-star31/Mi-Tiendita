@@ -36,16 +36,12 @@ export async function initDatabase() {
   const total = countResult.rows.item(0).total;
 
   if (total === 0) {
-    // Insertar los 1,805 productos del catálogo en lotes de 100
-    const batchSize = 100;
-    for (let i = 0; i < PRODUCTOS_SEED.length; i += batchSize) {
-      const batch = PRODUCTOS_SEED.slice(i, i + batchSize);
-      for (const p of batch) {
-        await db.executeSql(
-          `INSERT OR IGNORE INTO PRODUCTOS (nombre, precio) VALUES (?, ?);`,
-          [p.nombre, p.precio],
-        );
-      }
+    for (const p of PRODUCTOS_SEED) {
+      const codigo = p.codigo && p.codigo.length > 0 ? p.codigo : null;
+      await db.executeSql(
+        `INSERT OR IGNORE INTO PRODUCTOS (codigo_barras, nombre, precio) VALUES (?, ?, ?);`,
+        [codigo, p.nombre, p.precio],
+      );
     }
   }
 }
