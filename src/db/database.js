@@ -100,7 +100,9 @@ export async function vincularBarcode(id, codigoBarras) {
   return result.rowsAffected > 0;
 }
 
-// Inserta un producto nuevo con barcode, nombre y precio
+// Inserta un producto nuevo con barcode, nombre y precio.
+// Devuelve el producto ya guardado (con id) para poder agregarlo al carrito
+// o editarlo después.
 export async function insertarProducto({codigo, nombre, precio}) {
   const db = await getDBConnection();
   await db.executeSql(
@@ -108,6 +110,7 @@ export async function insertarProducto({codigo, nombre, precio}) {
      ON CONFLICT(codigo_barras) DO UPDATE SET nombre = excluded.nombre, precio = excluded.precio;`,
     [String(codigo).trim(), nombre, Number(precio)],
   );
+  return getProductoPorCodigo(codigo);
 }
 
 export async function upsertProducto({codigo, nombre, precio, stock}) {

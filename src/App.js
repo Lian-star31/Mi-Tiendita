@@ -16,10 +16,12 @@ import {NavigationContainer} from '@react-navigation/native';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
 
 import {initDatabase} from './db/database';
+import {CarritoProvider} from './context/CarritoContext';
 import HomeScreen from './screens/HomeScreen';
 import ResultScreen from './screens/ResultScreen';
 import BarcodeScanner from './components/BarcodeScanner';
 import AgregarProductoScreen from './screens/AgregarProductoScreen';
+import CarritoScreen from './screens/CarritoScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -57,36 +59,43 @@ export default function App() {
   }
 
   return (
-    <NavigationContainer>
-      <Stack.Navigator
-        initialRouteName="Home"
-        screenOptions={{
-          headerStyle: {backgroundColor: '#2196F3'},
-          headerTintColor: '#FFFFFF',
-          headerTitleStyle: {fontWeight: 'bold'},
-        }}>
-        <Stack.Screen
-          name="Home"
-          component={HomeScreen}
-          options={{title: 'Mi Tienda'}}
-        />
-        <Stack.Screen
-          name="Scanner"
-          component={BarcodeScanner}
-          options={{title: 'Escanear código'}}
-        />
-        <Stack.Screen
-          name="Result"
-          component={ResultScreen}
-          options={{title: 'Producto'}}
-        />
-        <Stack.Screen
-          name="AgregarProducto"
-          component={AgregarProductoScreen}
-          options={{title: 'Agregar producto'}}
-        />
-      </Stack.Navigator>
-    </NavigationContainer>
+    <CarritoProvider>
+      <NavigationContainer>
+        <Stack.Navigator
+          initialRouteName="Home"
+          screenOptions={{
+            headerStyle: {backgroundColor: '#2196F3'},
+            headerTintColor: '#FFFFFF',
+            headerTitleStyle: {fontWeight: 'bold'},
+          }}>
+          <Stack.Screen
+            name="Home"
+            component={HomeScreen}
+            options={{title: 'Mi Tienda'}}
+          />
+          <Stack.Screen
+            name="Scanner"
+            component={BarcodeScanner}
+            options={{title: 'Escanear código'}}
+          />
+          <Stack.Screen
+            name="Result"
+            component={ResultScreen}
+            options={{title: 'Producto'}}
+          />
+          <Stack.Screen
+            name="AgregarProducto"
+            component={AgregarProductoScreen}
+            options={{title: 'Agregar producto'}}
+          />
+          <Stack.Screen
+            name="Carrito"
+            component={CarritoScreen}
+            options={{title: 'Carrito'}}
+          />
+        </Stack.Navigator>
+      </NavigationContainer>
+    </CarritoProvider>
   );
 }
 

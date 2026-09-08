@@ -12,11 +12,13 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {buscarProducto} from '../db/database';
+import {useCarrito} from '../context/CarritoContext';
 
 const CM = 38;
 const LADO_BOTON = Math.min(15 * CM, Dimensions.get('window').width - 40);
 
 export default function HomeScreen({navigation}) {
+  const {cantidadTotal, total} = useCarrito();
   const [busqueda, setBusqueda] = useState('');
   const [nombreTienda, setNombreTienda] = useState('Mi Tienda');
   const [editandoNombre, setEditandoNombre] = useState(false);
@@ -80,6 +82,14 @@ export default function HomeScreen({navigation}) {
         </TouchableOpacity>
       )}
 
+      {cantidadTotal > 0 && (
+        <TouchableOpacity style={styles.bannerCarrito} onPress={() => navigation.navigate('Carrito')}>
+          <Text style={styles.bannerCarritoTexto}>
+            🛒 {cantidadTotal} {cantidadTotal === 1 ? 'producto' : 'productos'} · ${total.toFixed(2)}
+          </Text>
+        </TouchableOpacity>
+      )}
+
       <TouchableOpacity
         style={styles.botonEscanear}
         activeOpacity={0.8}
@@ -109,6 +119,8 @@ const styles = StyleSheet.create({
   content: { alignItems: 'center', paddingVertical: 24, paddingHorizontal: 20 },
   logo: { width: 200, height: 200, marginBottom: 8 },
   nombreTienda: { fontSize: 28, fontWeight: 'bold', color: '#000', marginBottom: 20, textAlign: 'center' },
+  bannerCarrito: { backgroundColor: '#4CAF50', borderRadius: 10, paddingVertical: 12, paddingHorizontal: 20, marginBottom: 20, width: '100%', alignItems: 'center' },
+  bannerCarritoTexto: { color: '#FFFFFF', fontSize: 18, fontWeight: 'bold' },
   editarNombreRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
   inputNombre: { flex: 1, fontSize: 22, borderBottomWidth: 2, borderColor: '#2196F3', paddingHorizontal: 8, color: '#000' },
   btnGuardar: { backgroundColor: '#2196F3', borderRadius: 8, padding: 10, marginLeft: 8 },

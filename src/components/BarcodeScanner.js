@@ -1,56 +1,90 @@
 import React, {useRef, useState} from 'react';
 import {
   Alert,
+  Modal,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import {RNCamera} from 'react-native-camera';
-import {getProductoPorCodigo} from '../db/database';
+import {getProductoPorCodigo, insertarProducto} from '../db/database';
+import {useCarrito} from '../context/CarritoContext';
+
+const COOLDOWN_MS = 1500;
 
 export default function BarcodeScanner({navigation}) {
-  const procesando = useRef(false);
+  const {agregarProducto, cantidadTotal, total} = useCarrito();
+  const bloqueado = useRef(false);
   const [mensaje, setMensaje] = useState('Apunta la cámara al código de barras');
+  const [aviso, setAviso] = useState(null);
+  const [codigoNuevo, setCodigoNuevo] = useState(null);
+  const [nombreNuevo, setNombreNuevo] = useState('');
+  const [precioNuevo, setPrecioNuevo] = useState('');
+
+  const liberarTrasCooldown = () => {
+    setTimeout(() => {
+      bloqueado.current = false;
+      setMensaje('Apunta la cámara al código de barras');
+    }, COOLDOWN_MS);
+  };
 
   const onBarCodeRead = async ({data}) => {
-    if (procesando.current) return;
-    procesando.current = true;
-    setMensaje('Buscando producto...');
+    if (bloqueado.current) return;
+    bloqueado.current = true;
+    setMensaje('Buscando...');
 
     try {
       const producto = await getProductoPorCodigo(data);
       if (producto) {
-        navigation.replace('Result', {producto});
+        agregarProducto(producto);
+        setAviso({nombre: producto.nombre, precio: producto.precio});
+        setMensaje('✓ Agregado al carrito');
+        setTimeout(() => setAviso(null), COOLDOWN_MS);
+        liberarTrasCooldown();
       } else {
-        Alert.alert(
-          'Producto nuevo',
-          `Código: ${data}\n\n¿Qué producto es este?`,
-          [
-            {
-              text: 'Buscar en catálogo',
-              onPress: () => {
-                navigation.replace('AgregarProducto', {codigoBarras: data});
-              },
-            },
-            {
-              text: 'Reintentar',
-              onPress: () => {
-                procesando.current = false;
-                setMensaje('Apunta la cámara al código de barras');
-              },
-            },
-            {
-              text: 'Volver',
-              onPress: () => navigation.goBack(),
-              style: 'cancel',
-            },
-          ],
-        );
+        // Pausa el escaneo y pide datos, sin perder lo ya escaneado.
+        setCodigoNuevo(data);
+        setNombreNuevo('');
+        setPrecioNuevo('');
       }
     } catch (e) {
-      procesando.current = false;
+      bloqueado.current = false;
       Alert.alert('Error', 'No se pudo leer el producto: ' + e.message);
+    }
+  };
+
+  const cancelarNuevoProducto = () => {
+    setCodigoNuevo(null);
+    bloqueado.current = false;
+    setMensaje('Apunta la cámara al código de barras');
+  };
+
+  const guardarNuevoProducto = async () => {
+    if (!nombreNuevo.trim() || !precioNuevo) {
+      Alert.alert('Falta información', 'Escribe el nombre y el precio.');
+      return;
+    }
+    const precio = parseFloat(precioNuevo.replace(',', '.'));
+    if (isNaN(precio) || precio < 0) {
+      Alert.alert('Precio inválido', 'Ingresa un número válido.');
+      return;
+    }
+    try {
+      const producto = await insertarProducto({
+        codigo: codigoNuevo,
+        nombre: nombreNuevo.trim(),
+        precio,
+      });
+      agregarProducto(producto);
+      setAviso({nombre: producto.nombre, precio: producto.precio});
+      setCodigoNuevo(null);
+      setMensaje('✓ Agregado al carrito');
+      setTimeout(() => setAviso(null), COOLDOWN_MS);
+      liberarTrasCooldown();
+    } catch (e) {
+      Alert.alert('Error', 'No se pudo guardar el producto: ' + e.message);
     }
   };
 
@@ -78,12 +112,75 @@ export default function BarcodeScanner({navigation}) {
         <View style={styles.overlay}>
           <View style={styles.marco} />
           <Text style={styles.mensaje}>{mensaje}</Text>
+          {aviso && (
+            <View style={styles.avisoBox}>
+              <Text style={styles.avisoNombre} numberOfLines={1}>
+                {aviso.nombre}
+              </Text>
+              <Text style={styles.avisoPrecio}>${Number(aviso.precio).toFixed(2)}</Text>
+            </View>
+          )}
         </View>
       </RNCamera>
+
+      <View style={styles.barraCarrito}>
+        <Text style={styles.barraTexto}>
+          {cantidadTotal} {cantidadTotal === 1 ? 'producto' : 'productos'} · ${total.toFixed(2)}
+        </Text>
+        <TouchableOpacity style={styles.botonVerCarrito} onPress={() => navigation.navigate('Carrito')}>
+          <Text style={styles.botonVerCarritoTexto}>VER CARRITO</Text>
+        </TouchableOpacity>
+      </View>
 
       <TouchableOpacity style={styles.botonVolver} onPress={() => navigation.goBack()}>
         <Text style={styles.botonTexto}>VOLVER</Text>
       </TouchableOpacity>
+
+      <Modal
+        visible={codigoNuevo !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={cancelarNuevoProducto}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitulo}>Producto nuevo</Text>
+            <Text style={styles.modalCodigo}>Código: {codigoNuevo}</Text>
+
+            <Text style={styles.modalEtiqueta}>Nombre:</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Nombre del producto"
+              placeholderTextColor="#9E9E9E"
+              value={nombreNuevo}
+              onChangeText={setNombreNuevo}
+              autoFocus
+            />
+
+            <Text style={styles.modalEtiqueta}>Precio:</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="0.00"
+              placeholderTextColor="#9E9E9E"
+              value={precioNuevo}
+              onChangeText={setPrecioNuevo}
+              keyboardType="decimal-pad"
+            />
+
+            <View style={styles.modalBotones}>
+              <TouchableOpacity
+                style={[styles.modalBoton, styles.modalCancelar]}
+                onPress={cancelarNuevoProducto}>
+                <Text style={styles.botonTexto}>CANCELAR</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalBoton, styles.modalGuardar]}
+                onPress={guardarNuevoProducto}>
+                <Text style={styles.botonTexto}>AGREGAR</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -94,6 +191,23 @@ const styles = StyleSheet.create({
   overlay: {flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent'},
   marco: {width: 260, height: 160, borderWidth: 3, borderColor: '#2196F3', borderRadius: 12, backgroundColor: 'transparent'},
   mensaje: {marginTop: 20, color: '#FFFFFF', fontSize: 18, fontWeight: '600', textAlign: 'center', paddingHorizontal: 20},
+  avisoBox: {marginTop: 16, backgroundColor: '#4CAF50', borderRadius: 10, paddingVertical: 10, paddingHorizontal: 18, alignItems: 'center'},
+  avisoNombre: {color: '#FFFFFF', fontSize: 16, fontWeight: '600', maxWidth: 260},
+  avisoPrecio: {color: '#FFFFFF', fontSize: 20, fontWeight: 'bold', marginTop: 2},
+  barraCarrito: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#1565C0', paddingHorizontal: 16, paddingVertical: 12},
+  barraTexto: {color: '#FFFFFF', fontSize: 16, fontWeight: '600', flexShrink: 1},
+  botonVerCarrito: {backgroundColor: '#FFFFFF', borderRadius: 8, paddingVertical: 8, paddingHorizontal: 14, marginLeft: 10},
+  botonVerCarritoTexto: {color: '#1565C0', fontSize: 14, fontWeight: 'bold'},
   botonVolver: {backgroundColor: '#9E9E9E', paddingVertical: 16, alignItems: 'center'},
   botonTexto: {color: '#FFFFFF', fontSize: 20, fontWeight: 'bold'},
+  modalOverlay: {flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', paddingHorizontal: 24},
+  modalCard: {backgroundColor: '#FFFFFF', borderRadius: 14, padding: 24},
+  modalTitulo: {fontSize: 24, fontWeight: 'bold', color: '#000', marginBottom: 4, textAlign: 'center'},
+  modalCodigo: {fontSize: 15, color: '#666', marginBottom: 16, textAlign: 'center'},
+  modalEtiqueta: {fontSize: 16, color: '#333', marginBottom: 6, marginTop: 8},
+  input: {fontSize: 20, borderWidth: 2, borderColor: '#2196F3', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, color: '#000'},
+  modalBotones: {flexDirection: 'row', justifyContent: 'space-between', marginTop: 22},
+  modalBoton: {flex: 1, borderRadius: 10, paddingVertical: 14, alignItems: 'center'},
+  modalCancelar: {backgroundColor: '#FF5252', marginRight: 8},
+  modalGuardar: {backgroundColor: '#4CAF50', marginLeft: 8},
 });

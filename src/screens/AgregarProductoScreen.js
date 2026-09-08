@@ -46,10 +46,8 @@ export default function AgregarProductoScreen({route, navigation}) {
           Alert.alert('Error', 'Ingresa un precio válido');
           return;
         }
-        await insertarProducto({codigo: codigoBarras, nombre: nombreNuevo.trim(), precio});
-        navigation.replace('Result', {
-          producto: {codigo_barras: codigoBarras, nombre: nombreNuevo.trim(), precio},
-        });
+        const producto = await insertarProducto({codigo: codigoBarras, nombre: nombreNuevo.trim(), precio});
+        navigation.replace('Result', {producto});
       } else {
         Alert.alert('Falta información', 'Busca el producto o escribe nombre y precio.');
       }
