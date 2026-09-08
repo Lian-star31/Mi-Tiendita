@@ -5,7 +5,8 @@
   "scripts": {
     "android": "react-native run-android",
     "start": "react-native start",
-    "build:apk": "cd android && ./gradlew assembleRelease"
+    "build:apk": "cd android && ./gradlew assembleRelease",
+    "download:apk": "node scripts/download-apk.js"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "1.23.0",
