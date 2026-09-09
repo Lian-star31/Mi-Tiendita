@@ -115,7 +115,7 @@ export default function BarcodeScanner({navigation}) {
           {aviso && (
             <View style={styles.avisoBox}>
               <Text style={styles.avisoNombre} numberOfLines={1}>
-                {aviso.nombre}
+                {aviso.nombre || '(sin nombre)'}
               </Text>
               <Text style={styles.avisoPrecio}>${Number(aviso.precio).toFixed(2)}</Text>
             </View>

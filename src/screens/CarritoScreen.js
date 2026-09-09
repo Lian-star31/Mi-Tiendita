@@ -57,7 +57,7 @@ export default function CarritoScreen({navigation}) {
             <View style={styles.fila}>
               <View style={styles.info}>
                 <Text style={styles.nombre} numberOfLines={2}>
-                  {item.nombre}
+                  {item.nombre || '(sin nombre)'}
                 </Text>
                 <Text style={styles.precioUnit}>${item.precio.toFixed(2)} c/u</Text>
               </View>

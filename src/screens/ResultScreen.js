@@ -71,7 +71,7 @@ export default function ResultScreen({route, navigation}) {
       {/* Nombre del producto */}
       <View style={styles.fila}>
         <Text style={styles.etiqueta}>Nombre:</Text>
-        <Text style={styles.dato}>{producto.nombre}</Text>
+        <Text style={styles.dato}>{producto.nombre || '(sin nombre)'}</Text>
       </View>
 
       {/* Precio destacado en rojo y grande */}

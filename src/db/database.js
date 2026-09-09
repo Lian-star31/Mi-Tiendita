@@ -44,6 +44,15 @@ export async function initDatabase() {
       );
     }
   }
+
+  // Corrige códigos de 11 dígitos que perdieron el cero inicial al leer el
+  // Excel original (UPC-A real son 12 dígitos). Afecta instalaciones que ya
+  // tenían datos guardados antes de este arreglo; es seguro repetirla en cada
+  // arranque porque una vez corregido el código deja de tener 11 dígitos.
+  await db.executeSql(
+    `UPDATE PRODUCTOS SET codigo_barras = '0' || codigo_barras
+     WHERE LENGTH(codigo_barras) = 11;`,
+  );
 }
 
 export async function getProductoPorCodigo(codigo) {
@@ -56,29 +65,44 @@ export async function getProductoPorCodigo(codigo) {
   return null;
 }
 
+// Busca un producto por código o nombre para la búsqueda manual.
+// Prioriza siempre una coincidencia exacta (código o nombre) sobre
+// coincidencias parciales. Si el texto es ambiguo (varias coincidencias
+// parciales y ninguna exacta), devuelve la lista para que el usuario elija
+// en vez de adivinar cuál quiso decir.
+// Devuelve: {tipo: 'unico', producto} | {tipo: 'varios', opciones} | {tipo: 'ninguno'}
 export async function buscarProducto(texto) {
   const db = await getDBConnection();
   const termino = String(texto).trim();
-  const [result] = await db.executeSql(
-    `SELECT * FROM PRODUCTOS WHERE codigo_barras = ? OR nombre LIKE ? LIMIT 1;`,
-    [termino, `%${termino}%`],
-  );
-  if (result.rows.length > 0) return result.rows.item(0);
-  return null;
-}
 
-// Busca productos por nombre (para autocompletar al agregar uno nuevo)
-export async function buscarProductosPorNombre(texto) {
-  const db = await getDBConnection();
-  const [result] = await db.executeSql(
-    `SELECT * FROM PRODUCTOS WHERE nombre LIKE ? ORDER BY nombre LIMIT 20;`,
-    [`%${String(texto).trim()}%`],
+  const [porCodigo] = await db.executeSql(
+    'SELECT * FROM PRODUCTOS WHERE codigo_barras = ? LIMIT 1;',
+    [termino],
   );
-  const items = [];
-  for (let i = 0; i < result.rows.length; i++) {
-    items.push(result.rows.item(i));
+  if (porCodigo.rows.length > 0) {
+    return {tipo: 'unico', producto: porCodigo.rows.item(0)};
   }
-  return items;
+
+  const [porNombreExacto] = await db.executeSql(
+    'SELECT * FROM PRODUCTOS WHERE nombre = ? COLLATE NOCASE LIMIT 1;',
+    [termino],
+  );
+  if (porNombreExacto.rows.length > 0) {
+    return {tipo: 'unico', producto: porNombreExacto.rows.item(0)};
+  }
+
+  const [parciales] = await db.executeSql(
+    'SELECT * FROM PRODUCTOS WHERE nombre LIKE ? ORDER BY nombre LIMIT 15;',
+    [`%${termino}%`],
+  );
+  const opciones = [];
+  for (let i = 0; i < parciales.rows.length; i++) {
+    opciones.push(parciales.rows.item(i));
+  }
+
+  if (opciones.length === 1) return {tipo: 'unico', producto: opciones[0]};
+  if (opciones.length > 1) return {tipo: 'varios', opciones};
+  return {tipo: 'ninguno'};
 }
 
 export async function actualizarPrecio(id, nuevoPrecio) {
@@ -86,16 +110,6 @@ export async function actualizarPrecio(id, nuevoPrecio) {
   const [result] = await db.executeSql(
     'UPDATE PRODUCTOS SET precio = ? WHERE id = ?;',
     [Number(nuevoPrecio), id],
-  );
-  return result.rowsAffected > 0;
-}
-
-// Vincula un código de barras a un producto existente (por id)
-export async function vincularBarcode(id, codigoBarras) {
-  const db = await getDBConnection();
-  const [result] = await db.executeSql(
-    'UPDATE PRODUCTOS SET codigo_barras = ? WHERE id = ?;',
-    [String(codigoBarras).trim(), id],
   );
   return result.rowsAffected > 0;
 }
@@ -122,13 +136,4 @@ export async function crearProductoSinCodigo({nombre, precio}) {
     [nombre, Number(precio)],
   );
   return {id: result.insertId, codigo_barras: null, nombre, precio: Number(precio), stock: 0};
-}
-
-export async function upsertProducto({codigo, nombre, precio, stock}) {
-  const db = await getDBConnection();
-  await db.executeSql(
-    `INSERT INTO PRODUCTOS (codigo_barras, nombre, precio, stock) VALUES (?, ?, ?, ?)
-     ON CONFLICT(codigo_barras) DO UPDATE SET nombre = excluded.nombre, precio = excluded.precio, stock = excluded.stock;`,
-    [String(codigo).trim(), nombre, Number(precio), Number(stock)],
-  );
 }

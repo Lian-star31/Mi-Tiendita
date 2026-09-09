@@ -20,7 +20,6 @@ import {CarritoProvider} from './context/CarritoContext';
 import HomeScreen from './screens/HomeScreen';
 import ResultScreen from './screens/ResultScreen';
 import BarcodeScanner from './components/BarcodeScanner';
-import AgregarProductoScreen from './screens/AgregarProductoScreen';
 import CarritoScreen from './screens/CarritoScreen';
 
 const Stack = createNativeStackNavigator();
@@ -82,11 +81,6 @@ export default function App() {
             name="Result"
             component={ResultScreen}
             options={{title: 'Producto'}}
-          />
-          <Stack.Screen
-            name="AgregarProducto"
-            component={AgregarProductoScreen}
-            options={{title: 'Agregar producto'}}
           />
           <Stack.Screen
             name="Carrito"

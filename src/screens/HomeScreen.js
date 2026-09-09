@@ -2,6 +2,7 @@ import React, {useState} from 'react';
 import {
   Alert,
   Dimensions,
+  FlatList,
   Image,
   Modal,
   ScrollView,
@@ -23,6 +24,7 @@ export default function HomeScreen({navigation}) {
   const [modalNuevo, setModalNuevo] = useState(false);
   const [nombreNuevo, setNombreNuevo] = useState('');
   const [precioNuevo, setPrecioNuevo] = useState('');
+  const [opciones, setOpciones] = useState(null);
 
   const onBuscarManual = async () => {
     const termino = busqueda.trim();
@@ -30,12 +32,19 @@ export default function HomeScreen({navigation}) {
       Alert.alert('Búsqueda', 'Escribe un código o nombre de producto.');
       return;
     }
-    const producto = await buscarProducto(termino);
-    if (producto) {
-      navigation.navigate('Result', {producto});
+    const resultado = await buscarProducto(termino);
+    if (resultado.tipo === 'unico') {
+      navigation.navigate('Result', {producto: resultado.producto});
+    } else if (resultado.tipo === 'varios') {
+      setOpciones(resultado.opciones);
     } else {
       Alert.alert('Sin resultados', `No se encontró: "${termino}"`);
     }
+  };
+
+  const elegirOpcion = producto => {
+    setOpciones(null);
+    navigation.navigate('Result', {producto});
   };
 
   const abrirNuevoProducto = () => {
@@ -57,7 +66,7 @@ export default function HomeScreen({navigation}) {
     try {
       await crearProductoSinCodigo({nombre: nombreNuevo.trim(), precio});
       setModalNuevo(false);
-      Alert.alert('Guardado', `${nombreNuevo.trim()} - $${precio.toFixed(2)}`);
+      Alert.alert('Guardado en el catálogo', `${nombreNuevo.trim()} - $${precio.toFixed(2)}\n\nYa puedes buscarlo por nombre cuando quieras.`);
     } catch (e) {
       Alert.alert('Error', 'No se pudo guardar el producto: ' + e.message);
     }
@@ -156,6 +165,35 @@ export default function HomeScreen({navigation}) {
           </View>
         </View>
       </Modal>
+
+      <Modal
+        visible={opciones !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setOpciones(null)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitulo}>¿Cuál de estos?</Text>
+            <Text style={styles.modalSubtitulo}>Toca el producto correcto</Text>
+            <FlatList
+              style={styles.listaOpciones}
+              data={opciones || []}
+              keyExtractor={item => String(item.id)}
+              renderItem={({item}) => (
+                <TouchableOpacity style={styles.opcionFila} onPress={() => elegirOpcion(item)}>
+                  <Text style={styles.opcionNombre} numberOfLines={2}>
+                    {item.nombre}
+                  </Text>
+                  <Text style={styles.opcionPrecio}>${Number(item.precio).toFixed(2)}</Text>
+                </TouchableOpacity>
+              )}
+            />
+            <TouchableOpacity style={styles.botonCancelarOpciones} onPress={() => setOpciones(null)}>
+              <Text style={styles.modalBotonTexto}>CANCELAR</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -184,4 +222,10 @@ const styles = StyleSheet.create({
   modalCancelar: { backgroundColor: '#FF5252', marginRight: 8 },
   modalGuardar: { backgroundColor: '#4CAF50', marginLeft: 8 },
   modalBotonTexto: { color: '#fff', fontSize: 19, fontWeight: 'bold' },
+  modalSubtitulo: { fontSize: 15, color: '#666', textAlign: 'center', marginBottom: 12 },
+  listaOpciones: { maxHeight: 320 },
+  opcionFila: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 4, borderBottomWidth: 1, borderColor: '#EEEEEE' },
+  opcionNombre: { fontSize: 18, color: '#000', flex: 1, marginRight: 10 },
+  opcionPrecio: { fontSize: 18, color: '#2196F3', fontWeight: 'bold' },
+  botonCancelarOpciones: { backgroundColor: '#9E9E9E', borderRadius: 10, paddingVertical: 14, alignItems: 'center', marginTop: 16 },
 });
