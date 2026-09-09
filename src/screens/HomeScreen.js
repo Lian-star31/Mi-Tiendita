@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useCallback, useState} from 'react';
 import {
   Alert,
   Dimensions,
@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import {useFocusEffect} from '@react-navigation/native';
 import {buscarProducto, buscarProductoPorNombreExacto, crearProductoSinCodigo} from '../db/database';
 import {useCarrito} from '../context/CarritoContext';
 
@@ -25,6 +26,19 @@ export default function HomeScreen({navigation}) {
   const [nombreNuevo, setNombreNuevo] = useState('');
   const [precioNuevo, setPrecioNuevo] = useState('');
   const [opciones, setOpciones] = useState(null);
+
+  // Inicio siempre debe quedar limpio, sin importar de dónde se venga
+  // (búsqueda anterior, venta anterior, etc.). Se reinicia cada vez que
+  // esta pantalla recibe el foco, no solo al montarse.
+  useFocusEffect(
+    useCallback(() => {
+      setBusqueda('');
+      setOpciones(null);
+      setModalNuevo(false);
+      setNombreNuevo('');
+      setPrecioNuevo('');
+    }, []),
+  );
 
   const onBuscarManual = async () => {
     const termino = busqueda.trim();

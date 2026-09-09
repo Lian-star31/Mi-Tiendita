@@ -16,7 +16,9 @@ export default function CarritoScreen({navigation}) {
         style: 'destructive',
         onPress: () => {
           vaciarCarrito();
-          navigation.navigate('Scanner');
+          // Colapsa todo el stack (Scanner/Result/Carrito) y deja solo
+          // Inicio, para que la venta anterior no quede accesible con Atrás.
+          navigation.popToTop();
         },
       },
     ]);
@@ -37,6 +39,9 @@ export default function CarritoScreen({navigation}) {
     vaciarCarrito();
     setCobrando(false);
     setEfectivo('');
+    // Misma razón que Nueva Venta: la venta ya terminó, no debe quedar
+    // ninguna pantalla de este ciclo accesible con Atrás.
+    navigation.popToTop();
   };
 
   const efectivoNum = parseFloat(String(efectivo).replace(',', '.')) || 0;
