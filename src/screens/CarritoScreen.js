@@ -1,9 +1,11 @@
-import React from 'react';
-import {Alert, FlatList, StyleSheet, Text, TouchableOpacity, View} from 'react-native';
+import React, {useState} from 'react';
+import {Alert, FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View} from 'react-native';
 import {useCarrito} from '../context/CarritoContext';
 
 export default function CarritoScreen({navigation}) {
   const {items, cambiarCantidad, vaciarCarrito, total, cantidadTotal} = useCarrito();
+  const [cobrando, setCobrando] = useState(false);
+  const [efectivo, setEfectivo] = useState('');
 
   const confirmarNuevaVenta = () => {
     if (items.length === 0) return;
@@ -12,6 +14,26 @@ export default function CarritoScreen({navigation}) {
       {text: 'Sí, vaciar', style: 'destructive', onPress: vaciarCarrito},
     ]);
   };
+
+  const abrirCobro = () => {
+    if (items.length === 0) return;
+    setEfectivo('');
+    setCobrando(true);
+  };
+
+  const cancelarCobro = () => {
+    setCobrando(false);
+    setEfectivo('');
+  };
+
+  const finalizarVenta = () => {
+    vaciarCarrito();
+    setCobrando(false);
+    setEfectivo('');
+  };
+
+  const efectivoNum = parseFloat(String(efectivo).replace(',', '.')) || 0;
+  const cambio = efectivoNum - total;
 
   return (
     <View style={styles.container}>
@@ -58,13 +80,62 @@ export default function CarritoScreen({navigation}) {
         <Text style={styles.total}>${total.toFixed(2)}</Text>
       </View>
 
-      <TouchableOpacity style={styles.botonSeguir} onPress={() => navigation.navigate('Scanner')}>
-        <Text style={styles.botonTexto}>SEGUIR ESCANEANDO</Text>
-      </TouchableOpacity>
+      {cobrando ? (
+        <View style={styles.cobroPanel}>
+          <Text style={styles.cobroEtiqueta}>Efectivo recibido:</Text>
+          <TextInput
+            style={styles.cobroInput}
+            placeholder="0.00"
+            placeholderTextColor="#9E9E9E"
+            keyboardType="decimal-pad"
+            value={efectivo}
+            onChangeText={setEfectivo}
+            autoFocus
+          />
 
-      <TouchableOpacity style={styles.botonNuevaVenta} onPress={confirmarNuevaVenta}>
-        <Text style={styles.botonTexto}>NUEVA VENTA</Text>
-      </TouchableOpacity>
+          {efectivo !== '' &&
+            (cambio >= 0 ? (
+              <View style={styles.cambioBox}>
+                <Text style={styles.cambioEtiqueta}>CAMBIO A ENTREGAR</Text>
+                <Text style={styles.cambioMonto}>${cambio.toFixed(2)}</Text>
+              </View>
+            ) : (
+              <View style={[styles.cambioBox, styles.faltaBox]}>
+                <Text style={styles.faltaEtiqueta}>FALTA</Text>
+                <Text style={styles.faltaMonto}>${Math.abs(cambio).toFixed(2)}</Text>
+              </View>
+            ))}
+
+          <View style={styles.cobroBotones}>
+            <TouchableOpacity style={styles.botonCancelarCobro} onPress={cancelarCobro}>
+              <Text style={styles.botonTexto}>CANCELAR</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.botonFinalizar, cambio < 0 && styles.botonDeshabilitado]}
+              disabled={cambio < 0}
+              onPress={finalizarVenta}>
+              <Text style={styles.botonTexto}>FINALIZAR VENTA</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      ) : (
+        <>
+          <TouchableOpacity
+            style={[styles.botonCobrar, items.length === 0 && styles.botonDeshabilitado]}
+            disabled={items.length === 0}
+            onPress={abrirCobro}>
+            <Text style={styles.botonTexto}>COBRAR</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.botonSeguir} onPress={() => navigation.navigate('Scanner')}>
+            <Text style={styles.botonTexto}>SEGUIR ESCANEANDO</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.botonNuevaVenta} onPress={confirmarNuevaVenta}>
+            <Text style={styles.botonTexto}>NUEVA VENTA</Text>
+          </TouchableOpacity>
+        </>
+      )}
     </View>
   );
 }
@@ -86,7 +157,21 @@ const styles = StyleSheet.create({
   resumen: {backgroundColor: '#F5F5F5', paddingVertical: 16, paddingHorizontal: 20, alignItems: 'center', borderTopWidth: 1, borderColor: '#E0E0E0'},
   totalEtiqueta: {fontSize: 16, color: '#333333', fontWeight: '600'},
   total: {fontSize: 34, fontWeight: 'bold', color: '#2E7D32', marginTop: 2},
+  botonCobrar: {backgroundColor: '#2E7D32', paddingVertical: 18, alignItems: 'center'},
   botonSeguir: {backgroundColor: '#2196F3', paddingVertical: 18, alignItems: 'center'},
   botonNuevaVenta: {backgroundColor: '#FF5252', paddingVertical: 18, alignItems: 'center'},
+  botonDeshabilitado: {opacity: 0.4},
   botonTexto: {color: '#FFFFFF', fontSize: 20, fontWeight: 'bold'},
+  cobroPanel: {padding: 20, backgroundColor: '#FFFFFF'},
+  cobroEtiqueta: {fontSize: 18, color: '#333333', marginBottom: 8},
+  cobroInput: {fontSize: 28, borderWidth: 2, borderColor: '#2196F3', borderRadius: 10, paddingHorizontal: 16, paddingVertical: 12, color: '#000000', marginBottom: 16},
+  cambioBox: {backgroundColor: '#E8F5E9', borderRadius: 10, paddingVertical: 18, alignItems: 'center', marginBottom: 20},
+  cambioEtiqueta: {fontSize: 16, color: '#2E7D32', fontWeight: '600'},
+  cambioMonto: {fontSize: 40, color: '#2E7D32', fontWeight: 'bold', marginTop: 4},
+  faltaBox: {backgroundColor: '#FFEBEE'},
+  faltaEtiqueta: {fontSize: 16, color: '#C62828', fontWeight: '600'},
+  faltaMonto: {fontSize: 40, color: '#C62828', fontWeight: 'bold', marginTop: 4},
+  cobroBotones: {flexDirection: 'row', justifyContent: 'space-between'},
+  botonCancelarCobro: {flex: 1, backgroundColor: '#9E9E9E', borderRadius: 10, paddingVertical: 16, alignItems: 'center', marginRight: 8},
+  botonFinalizar: {flex: 1, backgroundColor: '#2E7D32', borderRadius: 10, paddingVertical: 16, alignItems: 'center', marginLeft: 8},
 });

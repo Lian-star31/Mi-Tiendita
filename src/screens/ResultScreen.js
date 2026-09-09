@@ -22,11 +22,13 @@ import {
 } from 'react-native';
 
 import EditPriceModal from './EditPriceModal';
+import {useCarrito} from '../context/CarritoContext';
 
 export default function ResultScreen({route, navigation}) {
   // El producto llega por parámetros de navegación (desde Home o Scanner).
   const [producto, setProducto] = useState(route.params?.producto);
   const [modalVisible, setModalVisible] = useState(false);
+  const {agregarProducto} = useCarrito();
 
   // Salvaguarda por si se llega sin producto.
   if (!producto) {
@@ -51,6 +53,11 @@ export default function ResultScreen({route, navigation}) {
     setModalVisible(false);
   };
 
+  const onAgregarAlCarrito = () => {
+    agregarProducto(producto);
+    navigation.navigate('Carrito');
+  };
+
   return (
     <ScrollView
       style={styles.container}
@@ -58,7 +65,7 @@ export default function ResultScreen({route, navigation}) {
       {/* Código de barras */}
       <View style={styles.fila}>
         <Text style={styles.etiqueta}>Código:</Text>
-        <Text style={styles.dato}>{producto.codigo_barras}</Text>
+        <Text style={styles.dato}>{producto.codigo_barras || 'Sin código'}</Text>
       </View>
 
       {/* Nombre del producto */}
@@ -78,6 +85,13 @@ export default function ResultScreen({route, navigation}) {
         <Text style={styles.etiqueta}>STOCK:</Text>
         <Text style={styles.dato}>{producto.stock} unidades</Text>
       </View>
+
+      {/* Botón para agregar este producto al carrito de venta */}
+      <TouchableOpacity
+        style={styles.botonAgregarCarrito}
+        onPress={onAgregarAlCarrito}>
+        <Text style={styles.botonTexto}>AGREGAR AL CARRITO</Text>
+      </TouchableOpacity>
 
       {/* Botón para abrir el modal de edición de precio (verde) */}
       <TouchableOpacity
@@ -142,12 +156,19 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#FF5252',
   },
+  botonAgregarCarrito: {
+    backgroundColor: '#2196F3',
+    borderRadius: 10,
+    paddingVertical: 18,
+    alignItems: 'center',
+    marginTop: 12,
+    marginBottom: 16,
+  },
   botonEditar: {
     backgroundColor: '#4CAF50',
     borderRadius: 10,
     paddingVertical: 18,
     alignItems: 'center',
-    marginTop: 12,
     marginBottom: 16,
   },
   botonVolver: {

@@ -113,6 +113,17 @@ export async function insertarProducto({codigo, nombre, precio}) {
   return getProductoPorCodigo(codigo);
 }
 
+// Crea un producto sin código de barras (ej. producto a granel).
+// Se puede buscar luego por nombre y agregar al carrito sin escanear.
+export async function crearProductoSinCodigo({nombre, precio}) {
+  const db = await getDBConnection();
+  const [result] = await db.executeSql(
+    `INSERT INTO PRODUCTOS (codigo_barras, nombre, precio, stock) VALUES (NULL, ?, ?, 0);`,
+    [nombre, Number(precio)],
+  );
+  return {id: result.insertId, codigo_barras: null, nombre, precio: Number(precio), stock: 0};
+}
+
 export async function upsertProducto({codigo, nombre, precio, stock}) {
   const db = await getDBConnection();
   await db.executeSql(
