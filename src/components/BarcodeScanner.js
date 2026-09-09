@@ -11,6 +11,7 @@ import {
 import {RNCamera} from 'react-native-camera';
 import {getProductoPorCodigo, insertarProducto} from '../db/database';
 import {useCarrito} from '../context/CarritoContext';
+import EditPriceModal from '../screens/EditPriceModal';
 
 const COOLDOWN_MS = 1500;
 
@@ -22,6 +23,7 @@ export default function BarcodeScanner({navigation}) {
   const [codigoNuevo, setCodigoNuevo] = useState(null);
   const [nombreNuevo, setNombreNuevo] = useState('');
   const [precioNuevo, setPrecioNuevo] = useState('');
+  const [editandoPrecio, setEditandoPrecio] = useState(false);
 
   const liberarTrasCooldown = () => {
     setTimeout(() => {
@@ -39,9 +41,8 @@ export default function BarcodeScanner({navigation}) {
       const producto = await getProductoPorCodigo(data);
       if (producto) {
         agregarProducto(producto);
-        setAviso({nombre: producto.nombre, precio: producto.precio});
+        setAviso(producto);
         setMensaje('✓ Agregado al carrito');
-        setTimeout(() => setAviso(null), COOLDOWN_MS);
         liberarTrasCooldown();
       } else {
         // Pausa el escaneo y pide datos, sin perder lo ya escaneado.
@@ -78,14 +79,29 @@ export default function BarcodeScanner({navigation}) {
         precio,
       });
       agregarProducto(producto);
-      setAviso({nombre: producto.nombre, precio: producto.precio});
+      setAviso(producto);
       setCodigoNuevo(null);
       setMensaje('✓ Agregado al carrito');
-      setTimeout(() => setAviso(null), COOLDOWN_MS);
       liberarTrasCooldown();
     } catch (e) {
       Alert.alert('Error', 'No se pudo guardar el producto: ' + e.message);
     }
+  };
+
+  const abrirEditarPrecio = () => {
+    bloqueado.current = true;
+    setEditandoPrecio(true);
+  };
+
+  const cerrarEditarPrecio = () => {
+    setEditandoPrecio(false);
+    bloqueado.current = false;
+  };
+
+  const onPrecioEditado = nuevoPrecio => {
+    setAviso(prev => (prev ? {...prev, precio: nuevoPrecio} : prev));
+    setEditandoPrecio(false);
+    bloqueado.current = false;
   };
 
   return (
@@ -118,6 +134,9 @@ export default function BarcodeScanner({navigation}) {
                 {aviso.nombre || '(sin nombre)'}
               </Text>
               <Text style={styles.avisoPrecio}>${Number(aviso.precio).toFixed(2)}</Text>
+              <TouchableOpacity style={styles.botonEditarPrecio} onPress={abrirEditarPrecio}>
+                <Text style={styles.botonEditarPrecioTexto}>EDITAR PRECIO</Text>
+              </TouchableOpacity>
             </View>
           )}
         </View>
@@ -181,6 +200,13 @@ export default function BarcodeScanner({navigation}) {
           </View>
         </View>
       </Modal>
+
+      <EditPriceModal
+        visible={editandoPrecio}
+        producto={aviso}
+        onClose={cerrarEditarPrecio}
+        onGuardado={onPrecioEditado}
+      />
     </View>
   );
 }
@@ -194,6 +220,8 @@ const styles = StyleSheet.create({
   avisoBox: {marginTop: 16, backgroundColor: '#4CAF50', borderRadius: 10, paddingVertical: 10, paddingHorizontal: 18, alignItems: 'center'},
   avisoNombre: {color: '#FFFFFF', fontSize: 16, fontWeight: '600', maxWidth: 260},
   avisoPrecio: {color: '#FFFFFF', fontSize: 20, fontWeight: 'bold', marginTop: 2},
+  botonEditarPrecio: {backgroundColor: '#FFFFFF', borderRadius: 8, paddingVertical: 8, paddingHorizontal: 16, marginTop: 10},
+  botonEditarPrecioTexto: {color: '#2E7D32', fontSize: 15, fontWeight: 'bold'},
   barraCarrito: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#1565C0', paddingHorizontal: 16, paddingVertical: 12},
   barraTexto: {color: '#FFFFFF', fontSize: 16, fontWeight: '600', flexShrink: 1},
   botonVerCarrito: {backgroundColor: '#FFFFFF', borderRadius: 8, paddingVertical: 8, paddingHorizontal: 14, marginLeft: 10},

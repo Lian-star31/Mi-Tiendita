@@ -12,7 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import {buscarProducto, crearProductoSinCodigo} from '../db/database';
+import {buscarProducto, buscarProductoPorNombreExacto, crearProductoSinCodigo} from '../db/database';
 import {useCarrito} from '../context/CarritoContext';
 
 const CM = 38;
@@ -64,9 +64,22 @@ export default function HomeScreen({navigation}) {
       return;
     }
     try {
+      const existente = await buscarProductoPorNombreExacto(nombreNuevo.trim());
+      if (existente) {
+        setModalNuevo(false);
+        Alert.alert(
+          'Producto existente',
+          `"${existente.nombre}" ya está guardado con precio $${Number(existente.precio).toFixed(2)}.`,
+          [
+            {text: 'Ver / Editar', onPress: () => navigation.navigate('Result', {producto: existente})},
+            {text: 'Cerrar', style: 'cancel'},
+          ],
+        );
+        return;
+      }
       await crearProductoSinCodigo({nombre: nombreNuevo.trim(), precio});
       setModalNuevo(false);
-      Alert.alert('Guardado en el catálogo', `${nombreNuevo.trim()} - $${precio.toFixed(2)}\n\nYa puedes buscarlo por nombre cuando quieras.`);
+      Alert.alert('Producto guardado');
     } catch (e) {
       Alert.alert('Error', 'No se pudo guardar el producto: ' + e.message);
     }

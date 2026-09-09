@@ -105,6 +105,18 @@ export async function buscarProducto(texto) {
   return {tipo: 'ninguno'};
 }
 
+// Busca un producto por nombre exacto (sin importar mayúsculas/minúsculas).
+// Se usa para evitar crear duplicados al dar de alta un producto sin código.
+export async function buscarProductoPorNombreExacto(nombre) {
+  const db = await getDBConnection();
+  const [result] = await db.executeSql(
+    'SELECT * FROM PRODUCTOS WHERE nombre = ? COLLATE NOCASE LIMIT 1;',
+    [String(nombre).trim()],
+  );
+  if (result.rows.length > 0) return result.rows.item(0);
+  return null;
+}
+
 export async function actualizarPrecio(id, nuevoPrecio) {
   const db = await getDBConnection();
   const [result] = await db.executeSql(
