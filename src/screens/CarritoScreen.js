@@ -11,7 +11,14 @@ export default function CarritoScreen({navigation}) {
     if (items.length === 0) return;
     Alert.alert('Nueva venta', '¿Vaciar el carrito y empezar una venta nueva?', [
       {text: 'Cancelar', style: 'cancel'},
-      {text: 'Sí, vaciar', style: 'destructive', onPress: vaciarCarrito},
+      {
+        text: 'Sí, vaciar',
+        style: 'destructive',
+        onPress: () => {
+          vaciarCarrito();
+          navigation.navigate('Scanner');
+        },
+      },
     ]);
   };
 

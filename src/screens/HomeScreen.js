@@ -141,12 +141,16 @@ export default function HomeScreen({navigation}) {
               <TouchableOpacity
                 style={[styles.modalBoton, styles.modalCancelar]}
                 onPress={() => setModalNuevo(false)}>
-                <Text style={styles.botonBuscarTexto}>CANCELAR</Text>
+                <Text style={styles.modalBotonTexto} numberOfLines={1} adjustsFontSizeToFit>
+                  CANCELAR
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.modalBoton, styles.modalGuardar]}
                 onPress={guardarNuevoProducto}>
-                <Text style={styles.botonBuscarTexto}>GUARDAR</Text>
+                <Text style={styles.modalBotonTexto} numberOfLines={1} adjustsFontSizeToFit>
+                  GUARDAR
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -170,13 +174,14 @@ const styles = StyleSheet.create({
   inputBusqueda: { width: '100%', fontSize: 24, color: '#000', borderWidth: 2, borderColor: '#2196F3', borderRadius: 10, paddingHorizontal: 16, paddingVertical: 12, marginBottom: 16 },
   botonBuscar: { width: '100%', backgroundColor: '#2196F3', borderRadius: 10, paddingVertical: 14, alignItems: 'center' },
   botonBuscarTexto: { color: '#fff', fontSize: 22, fontWeight: 'bold' },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', paddingHorizontal: 24 },
-  modalCard: { backgroundColor: '#FFFFFF', borderRadius: 14, padding: 24, elevation: 6 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', paddingHorizontal: 16 },
+  modalCard: { backgroundColor: '#FFFFFF', borderRadius: 14, padding: 20, elevation: 6 },
   modalTitulo: { fontSize: 24, fontWeight: 'bold', color: '#000', marginBottom: 8, textAlign: 'center' },
   modalEtiqueta: { fontSize: 16, color: '#333', marginBottom: 6, marginTop: 10 },
   input: { fontSize: 20, borderWidth: 2, borderColor: '#2196F3', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, color: '#000' },
   modalBotones: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 22 },
-  modalBoton: { flex: 1, borderRadius: 10, paddingVertical: 14, alignItems: 'center' },
+  modalBoton: { flex: 1, borderRadius: 10, paddingVertical: 14, alignItems: 'center', paddingHorizontal: 4 },
   modalCancelar: { backgroundColor: '#FF5252', marginRight: 8 },
   modalGuardar: { backgroundColor: '#4CAF50', marginLeft: 8 },
+  modalBotonTexto: { color: '#fff', fontSize: 19, fontWeight: 'bold' },
 });
