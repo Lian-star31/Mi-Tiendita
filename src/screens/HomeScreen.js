@@ -94,7 +94,7 @@ export default function HomeScreen({navigation}) {
         <Text style={styles.botonNuevoProductoTexto}>+ NUEVO PRODUCTO</Text>
       </TouchableOpacity>
 
-      <Text style={styles.etiquetaBusqueda}>Buscar producto (ver precio o editar):</Text>
+      <Text style={styles.etiquetaBusqueda}>Buscar producto</Text>
       <TextInput
         style={styles.inputBusqueda}
         placeholder="Código o nombre"
