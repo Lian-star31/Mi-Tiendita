@@ -1,4 +1,4 @@
-import React, {useRef, useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {
   Alert,
   Modal,
@@ -24,6 +24,15 @@ export default function BarcodeScanner({navigation}) {
   const [nombreNuevo, setNombreNuevo] = useState('');
   const [precioNuevo, setPrecioNuevo] = useState('');
   const [editandoPrecio, setEditandoPrecio] = useState(false);
+
+  // El aviso es solo confirmación del último escaneo, no información
+  // permanente: si el carrito se vacía (Nueva Venta / Finalizar Venta),
+  // desaparece y la pantalla queda lista para el siguiente escaneo.
+  useEffect(() => {
+    if (cantidadTotal === 0) {
+      setAviso(null);
+    }
+  }, [cantidadTotal]);
 
   const liberarTrasCooldown = () => {
     setTimeout(() => {
