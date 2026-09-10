@@ -5,12 +5,15 @@ const CarritoContext = createContext(null);
 export function CarritoProvider({children}) {
   const [items, setItems] = useState([]);
 
-  const agregarProducto = useCallback(producto => {
+  // cantidadInicial permite agregar una cantidad específica de una sola vez
+  // (ej. 0.750 kg de un producto por peso) en vez de solo sumar 1 unidad.
+  // Si no se pasa, se comporta exactamente igual que antes (+1).
+  const agregarProducto = useCallback((producto, cantidadInicial = 1) => {
     setItems(prev => {
       const idx = prev.findIndex(it => it.id === producto.id);
       if (idx >= 0) {
         const copia = [...prev];
-        copia[idx] = {...copia[idx], cantidad: copia[idx].cantidad + 1};
+        copia[idx] = {...copia[idx], cantidad: copia[idx].cantidad + cantidadInicial};
         return copia;
       }
       return [
@@ -20,7 +23,8 @@ export function CarritoProvider({children}) {
           codigo_barras: producto.codigo_barras,
           nombre: producto.nombre,
           precio: Number(producto.precio),
-          cantidad: 1,
+          cantidad: cantidadInicial,
+          tipo: producto.tipo || 'unidad',
         },
       ];
     });

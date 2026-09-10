@@ -53,6 +53,21 @@ export async function initDatabase() {
     `UPDATE PRODUCTOS SET codigo_barras = '0' || codigo_barras
      WHERE LENGTH(codigo_barras) = 11;`,
   );
+
+  // Tipo de venta del producto: 'unidad' (precio fijo, como hasta ahora),
+  // 'peso' (precio por kg) o 'importe' (sin precio fijo, se cobra el monto
+  // que pida el cliente). Migración aditiva seguro para instalaciones que ya
+  // tenían datos: todo lo existente queda como 'unidad' (su comportamiento
+  // de siempre) y no se pierde ni modifica ningún dato. Si la columna ya
+  // existe (arranques posteriores al primero) SQLite lanza un error que se
+  // ignora a propósito.
+  try {
+    await db.executeSql(
+      `ALTER TABLE PRODUCTOS ADD COLUMN tipo TEXT NOT NULL DEFAULT 'unidad';`,
+    );
+  } catch (e) {
+    // La columna ya existe; no hay nada que hacer.
+  }
 }
 
 export async function getProductoPorCodigo(codigo) {
@@ -157,11 +172,13 @@ export async function insertarProducto({codigo, nombre, precio}) {
 
 // Crea un producto sin código de barras (ej. producto a granel).
 // Se puede buscar luego por nombre y agregar al carrito sin escanear.
-export async function crearProductoSinCodigo({nombre, precio}) {
+// tipo: 'unidad' (precio fijo, comportamiento de siempre), 'peso'
+// (precio es por kg) o 'importe' (sin precio fijo, precio se ignora).
+export async function crearProductoSinCodigo({nombre, precio, tipo = 'unidad'}) {
   const db = await getDBConnection();
   const [result] = await db.executeSql(
-    `INSERT INTO PRODUCTOS (codigo_barras, nombre, precio, stock) VALUES (NULL, ?, ?, 0);`,
-    [nombre, Number(precio)],
+    `INSERT INTO PRODUCTOS (codigo_barras, nombre, precio, stock, tipo) VALUES (NULL, ?, ?, 0, ?);`,
+    [nombre, Number(precio) || 0, tipo],
   );
-  return {id: result.insertId, codigo_barras: null, nombre, precio: Number(precio), stock: 0};
+  return {id: result.insertId, codigo_barras: null, nombre, precio: Number(precio) || 0, stock: 0, tipo};
 }

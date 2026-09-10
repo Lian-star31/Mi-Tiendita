@@ -1,15 +1,24 @@
 import React, {useEffect, useState} from 'react';
 import {Alert, FlatList, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View} from 'react-native';
 import {useCarrito} from '../context/CarritoContext';
-import {buscarProductosPorNombre} from '../db/database';
+import {buscarProductoPorNombreExacto, buscarProductosPorNombre, crearProductoSinCodigo} from '../db/database';
 
 export default function CarritoScreen({navigation}) {
   const {items, agregarProducto, cambiarCantidad, vaciarCarrito, total, cantidadTotal} = useCarrito();
   const [cobrando, setCobrando] = useState(false);
   const [efectivo, setEfectivo] = useState('');
+
+  // Flujo de "+": 'buscar' -> (si no existe) 'crear' -> (si es peso/importe) 'vender'
   const [modalAgregar, setModalAgregar] = useState(false);
+  const [paso, setPaso] = useState('buscar');
   const [busquedaProducto, setBusquedaProducto] = useState('');
   const [resultadosProducto, setResultadosProducto] = useState([]);
+  const [tipoNuevo, setTipoNuevo] = useState(null);
+  const [nombreCrear, setNombreCrear] = useState('');
+  const [precioKgCrear, setPrecioKgCrear] = useState('');
+  const [productoVenta, setProductoVenta] = useState(null);
+  const [kgVenta, setKgVenta] = useState('');
+  const [montoVenta, setMontoVenta] = useState('');
 
   useEffect(() => {
     if (busquedaProducto.trim().length >= 2) {
@@ -20,14 +29,99 @@ export default function CarritoScreen({navigation}) {
   }, [busquedaProducto]);
 
   const abrirAgregarProducto = () => {
+    setPaso('buscar');
     setBusquedaProducto('');
     setResultadosProducto([]);
     setModalAgregar(true);
   };
 
-  const seleccionarProducto = producto => {
-    agregarProducto(producto);
-    setModalAgregar(false);
+  const cerrarAgregarProducto = () => setModalAgregar(false);
+
+  // Seleccionar un producto ya existente en la búsqueda
+  const seleccionarExistente = producto => {
+    if (producto.tipo === 'peso' || producto.tipo === 'importe') {
+      irAVender(producto);
+    } else {
+      // 'unidad': mismo comportamiento de siempre, se agrega directo
+      agregarProducto(producto);
+      cerrarAgregarProducto();
+    }
+  };
+
+  const irACrear = () => {
+    setTipoNuevo(null);
+    setNombreCrear(busquedaProducto.trim());
+    setPrecioKgCrear('');
+    setPaso('crear');
+  };
+
+  const irAVender = producto => {
+    setProductoVenta(producto);
+    setKgVenta('');
+    setMontoVenta('');
+    setPaso('vender');
+  };
+
+  const guardarNuevoManual = async () => {
+    if (!nombreCrear.trim()) {
+      Alert.alert('Falta información', 'Escribe el nombre del producto.');
+      return;
+    }
+    if (tipoNuevo === 'peso') {
+      const precioKg = parseFloat(precioKgCrear.replace(',', '.'));
+      if (isNaN(precioKg) || precioKg <= 0) {
+        Alert.alert('Precio inválido', 'Ingresa el precio por kg.');
+        return;
+      }
+    }
+    try {
+      const existente = await buscarProductoPorNombreExacto(nombreCrear.trim());
+      if (existente) {
+        Alert.alert(
+          'Producto existente',
+          `"${existente.nombre}" ya está guardado.`,
+          [
+            {text: 'Vender ese', onPress: () => irAVender(existente)},
+            {text: 'Cancelar', style: 'cancel'},
+          ],
+        );
+        return;
+      }
+      const precio = tipoNuevo === 'peso' ? parseFloat(precioKgCrear.replace(',', '.')) : 0;
+      const producto = await crearProductoSinCodigo({
+        nombre: nombreCrear.trim(),
+        precio,
+        tipo: tipoNuevo,
+      });
+      irAVender(producto);
+    } catch (e) {
+      Alert.alert('Error', 'No se pudo guardar el producto: ' + e.message);
+    }
+  };
+
+  const agregarPorPeso = () => {
+    const kg = parseFloat(kgVenta.replace(',', '.'));
+    if (isNaN(kg) || kg <= 0) {
+      Alert.alert('Cantidad inválida', 'Ingresa los kg.');
+      return;
+    }
+    agregarProducto(productoVenta, kg);
+    cerrarAgregarProducto();
+  };
+
+  const agregarPorImporte = () => {
+    const monto = parseFloat(montoVenta.replace(',', '.'));
+    if (isNaN(monto) || monto <= 0) {
+      Alert.alert('Monto inválido', 'Ingresa el importe.');
+      return;
+    }
+    // Cada venta por importe es su propia línea (aunque sea el mismo
+    // producto), porque el monto puede ser distinto cada vez.
+    agregarProducto(
+      {...productoVenta, id: `${productoVenta.id}-${Date.now()}`, precio: monto},
+      1,
+    );
+    cerrarAgregarProducto();
   };
 
   const confirmarNuevaVenta = () => {
@@ -69,9 +163,16 @@ export default function CarritoScreen({navigation}) {
 
   const efectivoNum = parseFloat(String(efectivo).replace(',', '.')) || 0;
   const cambio = efectivoNum - total;
+  const kgVentaNum = parseFloat(String(kgVenta).replace(',', '.')) || 0;
 
   return (
     <View style={styles.container}>
+      <View style={styles.filaSuperior}>
+        <TouchableOpacity style={styles.botonMas} onPress={abrirAgregarProducto}>
+          <Text style={styles.botonMasTexto}>+</Text>
+        </TouchableOpacity>
+      </View>
+
       {items.length === 0 ? (
         <View style={styles.vacioBox}>
           <Text style={styles.vacioTexto}>El carrito está vacío</Text>
@@ -87,7 +188,11 @@ export default function CarritoScreen({navigation}) {
                 <Text style={styles.nombre} numberOfLines={2}>
                   {item.nombre || '(sin nombre)'}
                 </Text>
-                <Text style={styles.precioUnit}>${item.precio.toFixed(2)} c/u</Text>
+                <Text style={styles.precioUnit}>
+                  {item.tipo === 'peso'
+                    ? `$${item.precio.toFixed(2)} /kg`
+                    : `$${item.precio.toFixed(2)} c/u`}
+                </Text>
               </View>
               <View style={styles.controles}>
                 <TouchableOpacity
@@ -95,7 +200,9 @@ export default function CarritoScreen({navigation}) {
                   onPress={() => cambiarCantidad(item.id, item.cantidad - 1)}>
                   <Text style={styles.botonCantidadTexto}>−</Text>
                 </TouchableOpacity>
-                <Text style={styles.cantidad}>{item.cantidad}</Text>
+                <Text style={styles.cantidad}>
+                  {item.tipo === 'peso' ? `${item.cantidad.toFixed(3)} kg` : item.cantidad}
+                </Text>
                 <TouchableOpacity
                   style={styles.botonCantidad}
                   onPress={() => cambiarCantidad(item.id, item.cantidad + 1)}>
@@ -155,10 +262,6 @@ export default function CarritoScreen({navigation}) {
         </View>
       ) : (
         <>
-          <TouchableOpacity style={styles.botonAgregarProducto} onPress={abrirAgregarProducto}>
-            <Text style={styles.botonTexto}>+ AGREGAR PRODUCTO</Text>
-          </TouchableOpacity>
-
           <TouchableOpacity
             style={[styles.botonCobrar, items.length === 0 && styles.botonDeshabilitado]}
             disabled={items.length === 0}
@@ -180,43 +283,197 @@ export default function CarritoScreen({navigation}) {
         visible={modalAgregar}
         transparent
         animationType="slide"
-        onRequestClose={() => setModalAgregar(false)}>
+        onRequestClose={cerrarAgregarProducto}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitulo}>Agregar producto</Text>
-            <Text style={styles.modalSubtitulo}>Busca por nombre (ej. Jamón, Azúcar)</Text>
+            {paso === 'buscar' && (
+              <>
+                <Text style={styles.modalTitulo}>Agregar producto</Text>
+                <Text style={styles.modalSubtitulo}>Busca por nombre (ej. Jamón, Azúcar)</Text>
 
-            <TextInput
-              style={styles.input}
-              placeholder="Nombre del producto..."
-              placeholderTextColor="#9E9E9E"
-              value={busquedaProducto}
-              onChangeText={setBusquedaProducto}
-              autoFocus
-            />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Nombre del producto..."
+                  placeholderTextColor="#9E9E9E"
+                  value={busquedaProducto}
+                  onChangeText={setBusquedaProducto}
+                  autoFocus
+                />
 
-            {busquedaProducto.trim().length >= 2 && resultadosProducto.length === 0 && (
-              <Text style={styles.sinResultados}>Sin resultados</Text>
+                {busquedaProducto.trim().length >= 2 && resultadosProducto.length === 0 && (
+                  <>
+                    <Text style={styles.sinResultados}>Sin resultados</Text>
+                    <TouchableOpacity style={styles.botonCrearNuevo} onPress={irACrear}>
+                      <Text style={styles.botonTexto}>CREAR PRODUCTO NUEVO</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
+
+                <FlatList
+                  style={styles.listaOpciones}
+                  data={resultadosProducto}
+                  keyExtractor={item => String(item.id)}
+                  keyboardShouldPersistTaps="handled"
+                  renderItem={({item}) => (
+                    <TouchableOpacity style={styles.opcionFila} onPress={() => seleccionarExistente(item)}>
+                      <Text style={styles.opcionNombre} numberOfLines={2}>
+                        {item.nombre || '(sin nombre)'}
+                      </Text>
+                      <Text style={styles.opcionPrecio}>
+                        {item.tipo === 'peso'
+                          ? `$${Number(item.precio).toFixed(2)}/kg`
+                          : item.tipo === 'importe'
+                          ? 'por importe'
+                          : `$${Number(item.precio).toFixed(2)}`}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                />
+
+                <TouchableOpacity style={styles.botonCancelarOpciones} onPress={cerrarAgregarProducto}>
+                  <Text style={styles.botonTexto}>CANCELAR</Text>
+                </TouchableOpacity>
+              </>
             )}
 
-            <FlatList
-              style={styles.listaOpciones}
-              data={resultadosProducto}
-              keyExtractor={item => String(item.id)}
-              keyboardShouldPersistTaps="handled"
-              renderItem={({item}) => (
-                <TouchableOpacity style={styles.opcionFila} onPress={() => seleccionarProducto(item)}>
-                  <Text style={styles.opcionNombre} numberOfLines={2}>
-                    {item.nombre || '(sin nombre)'}
-                  </Text>
-                  <Text style={styles.opcionPrecio}>${Number(item.precio).toFixed(2)}</Text>
-                </TouchableOpacity>
-              )}
-            />
+            {paso === 'crear' && (
+              <>
+                <Text style={styles.modalTitulo}>Producto nuevo</Text>
 
-            <TouchableOpacity style={styles.botonCancelarOpciones} onPress={() => setModalAgregar(false)}>
-              <Text style={styles.botonTexto}>CANCELAR</Text>
-            </TouchableOpacity>
+                {tipoNuevo === null ? (
+                  <>
+                    <Text style={styles.modalSubtitulo}>¿Cómo se vende?</Text>
+                    <TouchableOpacity style={styles.botonTipo} onPress={() => setTipoNuevo('peso')}>
+                      <Text style={styles.botonTexto}>POR PESO</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.botonTipo} onPress={() => setTipoNuevo('importe')}>
+                      <Text style={styles.botonTexto}>POR IMPORTE</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.botonCancelarOpciones} onPress={cerrarAgregarProducto}>
+                      <Text style={styles.botonTexto}>CANCELAR</Text>
+                    </TouchableOpacity>
+                  </>
+                ) : (
+                  <>
+                    <Text style={styles.modalSubtitulo}>
+                      {tipoNuevo === 'peso' ? 'Nombre y precio por kg' : 'Nombre del producto'}
+                    </Text>
+
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Ej. Jamón"
+                      placeholderTextColor="#9E9E9E"
+                      value={nombreCrear}
+                      onChangeText={setNombreCrear}
+                      autoFocus
+                    />
+
+                    {tipoNuevo === 'peso' && (
+                      <TextInput
+                        style={[styles.input, styles.inputConMargen]}
+                        placeholder="Precio por kg, ej. 150.00"
+                        placeholderTextColor="#9E9E9E"
+                        keyboardType="decimal-pad"
+                        value={precioKgCrear}
+                        onChangeText={setPrecioKgCrear}
+                      />
+                    )}
+
+                    <View style={styles.modalBotones}>
+                      <TouchableOpacity
+                        style={[styles.modalBoton, styles.modalCancelar]}
+                        onPress={cerrarAgregarProducto}>
+                        <Text style={styles.modalBotonTexto} numberOfLines={1} adjustsFontSizeToFit>
+                          CANCELAR
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.modalBoton, styles.modalGuardar]}
+                        onPress={guardarNuevoManual}>
+                        <Text style={styles.modalBotonTexto} numberOfLines={1} adjustsFontSizeToFit>
+                          GUARDAR
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </>
+                )}
+              </>
+            )}
+
+            {paso === 'vender' && productoVenta && (
+              <>
+                <Text style={styles.modalTitulo}>{productoVenta.nombre}</Text>
+
+                {productoVenta.tipo === 'peso' ? (
+                  <>
+                    <Text style={styles.modalSubtitulo}>
+                      ${Number(productoVenta.precio).toFixed(2)} por kg — ¿cuántos kg?
+                    </Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Kg, ej. 0.500"
+                      placeholderTextColor="#9E9E9E"
+                      keyboardType="decimal-pad"
+                      value={kgVenta}
+                      onChangeText={setKgVenta}
+                      autoFocus
+                    />
+                    {kgVentaNum > 0 && (
+                      <View style={styles.previewBox}>
+                        <Text style={styles.previewTexto}>
+                          Importe: ${(kgVentaNum * Number(productoVenta.precio)).toFixed(2)}
+                        </Text>
+                      </View>
+                    )}
+                    <View style={styles.modalBotones}>
+                      <TouchableOpacity
+                        style={[styles.modalBoton, styles.modalCancelar]}
+                        onPress={cerrarAgregarProducto}>
+                        <Text style={styles.modalBotonTexto} numberOfLines={1} adjustsFontSizeToFit>
+                          CANCELAR
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.modalBoton, styles.modalGuardar]}
+                        onPress={agregarPorPeso}>
+                        <Text style={styles.modalBotonTexto} numberOfLines={1} adjustsFontSizeToFit>
+                          AGREGAR
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </>
+                ) : (
+                  <>
+                    <Text style={styles.modalSubtitulo}>¿Cuánto quiere comprar?</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Importe, ej. 20.00"
+                      placeholderTextColor="#9E9E9E"
+                      keyboardType="decimal-pad"
+                      value={montoVenta}
+                      onChangeText={setMontoVenta}
+                      autoFocus
+                    />
+                    <View style={styles.modalBotones}>
+                      <TouchableOpacity
+                        style={[styles.modalBoton, styles.modalCancelar]}
+                        onPress={cerrarAgregarProducto}>
+                        <Text style={styles.modalBotonTexto} numberOfLines={1} adjustsFontSizeToFit>
+                          CANCELAR
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.modalBoton, styles.modalGuardar]}
+                        onPress={agregarPorImporte}>
+                        <Text style={styles.modalBotonTexto} numberOfLines={1} adjustsFontSizeToFit>
+                          AGREGAR
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </>
+                )}
+              </>
+            )}
           </View>
         </View>
       </Modal>
@@ -226,6 +483,9 @@ export default function CarritoScreen({navigation}) {
 
 const styles = StyleSheet.create({
   container: {flex: 1, backgroundColor: '#FFFFFF'},
+  filaSuperior: {flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 16, paddingTop: 12},
+  botonMas: {width: 44, height: 44, borderRadius: 22, backgroundColor: '#009688', alignItems: 'center', justifyContent: 'center', elevation: 3},
+  botonMasTexto: {color: '#fff', fontSize: 26, fontWeight: 'bold', lineHeight: 28},
   vacioBox: {flex: 1, alignItems: 'center', justifyContent: 'center'},
   vacioTexto: {fontSize: 22, color: '#9E9E9E'},
   lista: {padding: 16, paddingBottom: 8},
@@ -241,7 +501,6 @@ const styles = StyleSheet.create({
   resumen: {backgroundColor: '#F5F5F5', paddingVertical: 16, paddingHorizontal: 20, alignItems: 'center', borderTopWidth: 1, borderColor: '#E0E0E0'},
   totalEtiqueta: {fontSize: 16, color: '#333333', fontWeight: '600'},
   total: {fontSize: 34, fontWeight: 'bold', color: '#2E7D32', marginTop: 2},
-  botonAgregarProducto: {backgroundColor: '#009688', paddingVertical: 18, alignItems: 'center'},
   botonCobrar: {backgroundColor: '#2E7D32', paddingVertical: 18, alignItems: 'center'},
   botonSeguir: {backgroundColor: '#2196F3', paddingVertical: 18, alignItems: 'center'},
   botonNuevaVenta: {backgroundColor: '#FF5252', paddingVertical: 18, alignItems: 'center'},
@@ -264,10 +523,20 @@ const styles = StyleSheet.create({
   modalTitulo: {fontSize: 24, fontWeight: 'bold', color: '#000', marginBottom: 4, textAlign: 'center'},
   modalSubtitulo: {fontSize: 15, color: '#666', textAlign: 'center', marginBottom: 16},
   input: {fontSize: 20, borderWidth: 2, borderColor: '#2196F3', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, color: '#000'},
+  inputConMargen: {marginTop: 10},
   sinResultados: {fontSize: 16, color: '#9E9E9E', textAlign: 'center', marginTop: 16},
-  listaOpciones: {maxHeight: 320, marginTop: 8},
+  botonCrearNuevo: {backgroundColor: '#009688', borderRadius: 10, paddingVertical: 14, alignItems: 'center', marginTop: 12},
+  listaOpciones: {maxHeight: 280, marginTop: 8},
   opcionFila: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 4, borderBottomWidth: 1, borderColor: '#EEEEEE'},
   opcionNombre: {fontSize: 18, color: '#000', flex: 1, marginRight: 10},
   opcionPrecio: {fontSize: 18, color: '#2196F3', fontWeight: 'bold'},
   botonCancelarOpciones: {backgroundColor: '#9E9E9E', borderRadius: 10, paddingVertical: 14, alignItems: 'center', marginTop: 16},
+  botonTipo: {backgroundColor: '#2196F3', borderRadius: 10, paddingVertical: 18, alignItems: 'center', marginBottom: 12},
+  modalBotones: {flexDirection: 'row', justifyContent: 'space-between', marginTop: 20},
+  modalBoton: {flex: 1, borderRadius: 10, paddingVertical: 14, alignItems: 'center', paddingHorizontal: 4},
+  modalCancelar: {backgroundColor: '#FF5252', marginRight: 8},
+  modalGuardar: {backgroundColor: '#4CAF50', marginLeft: 8},
+  modalBotonTexto: {color: '#fff', fontSize: 19, fontWeight: 'bold'},
+  previewBox: {backgroundColor: '#E8F5E9', borderRadius: 10, paddingVertical: 14, alignItems: 'center', marginTop: 12},
+  previewTexto: {fontSize: 20, color: '#2E7D32', fontWeight: 'bold'},
 });
