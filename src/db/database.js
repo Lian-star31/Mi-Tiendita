@@ -117,6 +117,22 @@ export async function buscarProductoPorNombreExacto(nombre) {
   return null;
 }
 
+// Busca productos por nombre (varias coincidencias) para autocompletar
+// mientras se escribe, por ejemplo al agregar un producto sin código
+// directamente al carrito.
+export async function buscarProductosPorNombre(texto) {
+  const db = await getDBConnection();
+  const [result] = await db.executeSql(
+    'SELECT * FROM PRODUCTOS WHERE nombre LIKE ? ORDER BY nombre LIMIT 20;',
+    [`%${String(texto).trim()}%`],
+  );
+  const items = [];
+  for (let i = 0; i < result.rows.length; i++) {
+    items.push(result.rows.item(i));
+  }
+  return items;
+}
+
 export async function actualizarPrecio(id, nuevoPrecio) {
   const db = await getDBConnection();
   const [result] = await db.executeSql(

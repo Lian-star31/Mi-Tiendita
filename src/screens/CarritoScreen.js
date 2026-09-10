@@ -1,11 +1,34 @@
-import React, {useState} from 'react';
-import {Alert, FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View} from 'react-native';
+import React, {useEffect, useState} from 'react';
+import {Alert, FlatList, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View} from 'react-native';
 import {useCarrito} from '../context/CarritoContext';
+import {buscarProductosPorNombre} from '../db/database';
 
 export default function CarritoScreen({navigation}) {
-  const {items, cambiarCantidad, vaciarCarrito, total, cantidadTotal} = useCarrito();
+  const {items, agregarProducto, cambiarCantidad, vaciarCarrito, total, cantidadTotal} = useCarrito();
   const [cobrando, setCobrando] = useState(false);
   const [efectivo, setEfectivo] = useState('');
+  const [modalAgregar, setModalAgregar] = useState(false);
+  const [busquedaProducto, setBusquedaProducto] = useState('');
+  const [resultadosProducto, setResultadosProducto] = useState([]);
+
+  useEffect(() => {
+    if (busquedaProducto.trim().length >= 2) {
+      buscarProductosPorNombre(busquedaProducto).then(setResultadosProducto);
+    } else {
+      setResultadosProducto([]);
+    }
+  }, [busquedaProducto]);
+
+  const abrirAgregarProducto = () => {
+    setBusquedaProducto('');
+    setResultadosProducto([]);
+    setModalAgregar(true);
+  };
+
+  const seleccionarProducto = producto => {
+    agregarProducto(producto);
+    setModalAgregar(false);
+  };
 
   const confirmarNuevaVenta = () => {
     if (items.length === 0) return;
@@ -132,6 +155,10 @@ export default function CarritoScreen({navigation}) {
         </View>
       ) : (
         <>
+          <TouchableOpacity style={styles.botonAgregarProducto} onPress={abrirAgregarProducto}>
+            <Text style={styles.botonTexto}>+ AGREGAR PRODUCTO</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity
             style={[styles.botonCobrar, items.length === 0 && styles.botonDeshabilitado]}
             disabled={items.length === 0}
@@ -148,6 +175,51 @@ export default function CarritoScreen({navigation}) {
           </TouchableOpacity>
         </>
       )}
+
+      <Modal
+        visible={modalAgregar}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setModalAgregar(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitulo}>Agregar producto</Text>
+            <Text style={styles.modalSubtitulo}>Busca por nombre (ej. Jamón, Azúcar)</Text>
+
+            <TextInput
+              style={styles.input}
+              placeholder="Nombre del producto..."
+              placeholderTextColor="#9E9E9E"
+              value={busquedaProducto}
+              onChangeText={setBusquedaProducto}
+              autoFocus
+            />
+
+            {busquedaProducto.trim().length >= 2 && resultadosProducto.length === 0 && (
+              <Text style={styles.sinResultados}>Sin resultados</Text>
+            )}
+
+            <FlatList
+              style={styles.listaOpciones}
+              data={resultadosProducto}
+              keyExtractor={item => String(item.id)}
+              keyboardShouldPersistTaps="handled"
+              renderItem={({item}) => (
+                <TouchableOpacity style={styles.opcionFila} onPress={() => seleccionarProducto(item)}>
+                  <Text style={styles.opcionNombre} numberOfLines={2}>
+                    {item.nombre || '(sin nombre)'}
+                  </Text>
+                  <Text style={styles.opcionPrecio}>${Number(item.precio).toFixed(2)}</Text>
+                </TouchableOpacity>
+              )}
+            />
+
+            <TouchableOpacity style={styles.botonCancelarOpciones} onPress={() => setModalAgregar(false)}>
+              <Text style={styles.botonTexto}>CANCELAR</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -169,6 +241,7 @@ const styles = StyleSheet.create({
   resumen: {backgroundColor: '#F5F5F5', paddingVertical: 16, paddingHorizontal: 20, alignItems: 'center', borderTopWidth: 1, borderColor: '#E0E0E0'},
   totalEtiqueta: {fontSize: 16, color: '#333333', fontWeight: '600'},
   total: {fontSize: 34, fontWeight: 'bold', color: '#2E7D32', marginTop: 2},
+  botonAgregarProducto: {backgroundColor: '#009688', paddingVertical: 18, alignItems: 'center'},
   botonCobrar: {backgroundColor: '#2E7D32', paddingVertical: 18, alignItems: 'center'},
   botonSeguir: {backgroundColor: '#2196F3', paddingVertical: 18, alignItems: 'center'},
   botonNuevaVenta: {backgroundColor: '#FF5252', paddingVertical: 18, alignItems: 'center'},
@@ -186,4 +259,15 @@ const styles = StyleSheet.create({
   cobroBotones: {flexDirection: 'row', justifyContent: 'space-between'},
   botonCancelarCobro: {flex: 1, backgroundColor: '#9E9E9E', borderRadius: 10, paddingVertical: 16, alignItems: 'center', marginRight: 8},
   botonFinalizar: {flex: 1, backgroundColor: '#2E7D32', borderRadius: 10, paddingVertical: 16, alignItems: 'center', marginLeft: 8},
+  modalOverlay: {flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', paddingHorizontal: 16},
+  modalCard: {backgroundColor: '#FFFFFF', borderRadius: 14, padding: 20, elevation: 6, maxHeight: '80%'},
+  modalTitulo: {fontSize: 24, fontWeight: 'bold', color: '#000', marginBottom: 4, textAlign: 'center'},
+  modalSubtitulo: {fontSize: 15, color: '#666', textAlign: 'center', marginBottom: 16},
+  input: {fontSize: 20, borderWidth: 2, borderColor: '#2196F3', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, color: '#000'},
+  sinResultados: {fontSize: 16, color: '#9E9E9E', textAlign: 'center', marginTop: 16},
+  listaOpciones: {maxHeight: 320, marginTop: 8},
+  opcionFila: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 4, borderBottomWidth: 1, borderColor: '#EEEEEE'},
+  opcionNombre: {fontSize: 18, color: '#000', flex: 1, marginRight: 10},
+  opcionPrecio: {fontSize: 18, color: '#2196F3', fontWeight: 'bold'},
+  botonCancelarOpciones: {backgroundColor: '#9E9E9E', borderRadius: 10, paddingVertical: 14, alignItems: 'center', marginTop: 16},
 });
