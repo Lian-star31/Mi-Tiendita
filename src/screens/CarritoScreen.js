@@ -2,6 +2,7 @@ import React, {useEffect, useState} from 'react';
 import {Alert, FlatList, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View} from 'react-native';
 import {useCarrito} from '../context/CarritoContext';
 import {buscarProductoPorNombreExacto, buscarProductosPorNombre, crearProductoSinCodigo} from '../db/database';
+import {normalizarNombreProducto} from '../utils/normalizarNombre';
 
 export default function CarritoScreen({navigation}) {
   const {items, agregarProducto, cambiarCantidad, vaciarCarrito, total, cantidadTotal} = useCarrito();
@@ -67,15 +68,14 @@ export default function CarritoScreen({navigation}) {
       Alert.alert('Falta información', 'Escribe el nombre del producto.');
       return;
     }
-    if (tipoNuevo === 'peso') {
-      const precioKg = parseFloat(precioKgCrear.replace(',', '.'));
-      if (isNaN(precioKg) || precioKg <= 0) {
-        Alert.alert('Precio inválido', 'Ingresa el precio por kg.');
-        return;
-      }
+    const precioKg = parseFloat(precioKgCrear.replace(',', '.'));
+    if (isNaN(precioKg) || precioKg <= 0) {
+      Alert.alert('Precio inválido', 'Ingresa el precio por kg de referencia.');
+      return;
     }
     try {
-      const existente = await buscarProductoPorNombreExacto(nombreCrear.trim());
+      const nombre = normalizarNombreProducto(nombreCrear);
+      const existente = await buscarProductoPorNombreExacto(nombre);
       if (existente) {
         Alert.alert(
           'Producto existente',
@@ -87,12 +87,7 @@ export default function CarritoScreen({navigation}) {
         );
         return;
       }
-      const precio = tipoNuevo === 'peso' ? parseFloat(precioKgCrear.replace(',', '.')) : 0;
-      const producto = await crearProductoSinCodigo({
-        nombre: nombreCrear.trim(),
-        precio,
-        tipo: tipoNuevo,
-      });
+      const producto = await crearProductoSinCodigo({nombre, precio: precioKg, tipo: tipoNuevo});
       irAVender(producto);
     } catch (e) {
       Alert.alert('Error', 'No se pudo guardar el producto: ' + e.message);
@@ -182,36 +177,45 @@ export default function CarritoScreen({navigation}) {
           data={items}
           keyExtractor={item => String(item.id)}
           contentContainerStyle={styles.lista}
-          renderItem={({item}) => (
-            <View style={styles.fila}>
-              <View style={styles.info}>
-                <Text style={styles.nombre} numberOfLines={2}>
-                  {item.nombre || '(sin nombre)'}
-                </Text>
-                <Text style={styles.precioUnit}>
+          renderItem={({item}) =>
+            item.tipo === 'peso' || item.tipo === 'importe' ? (
+              <View style={styles.fila}>
+                <Text style={styles.filaLineaUnica} numberOfLines={1}>
                   {item.tipo === 'peso'
-                    ? `$${item.precio.toFixed(2)} /kg`
-                    : `$${item.precio.toFixed(2)} c/u`}
-                </Text>
-              </View>
-              <View style={styles.controles}>
-                <TouchableOpacity
-                  style={styles.botonCantidad}
-                  onPress={() => cambiarCantidad(item.id, item.cantidad - 1)}>
-                  <Text style={styles.botonCantidadTexto}>−</Text>
-                </TouchableOpacity>
-                <Text style={styles.cantidad}>
-                  {item.tipo === 'peso' ? `${item.cantidad.toFixed(3)} kg` : item.cantidad}
+                    ? `${item.nombre || '(sin nombre)'} — ${item.cantidad.toFixed(3)} kg — $${(item.precio * item.cantidad).toFixed(2)}`
+                    : `${item.nombre || '(sin nombre)'} — $${item.precio.toFixed(2)}`}
                 </Text>
                 <TouchableOpacity
-                  style={styles.botonCantidad}
-                  onPress={() => cambiarCantidad(item.id, item.cantidad + 1)}>
-                  <Text style={styles.botonCantidadTexto}>+</Text>
+                  style={styles.botonQuitar}
+                  onPress={() => cambiarCantidad(item.id, 0)}>
+                  <Text style={styles.botonQuitarTexto}>✕</Text>
                 </TouchableOpacity>
               </View>
-              <Text style={styles.subtotal}>${(item.precio * item.cantidad).toFixed(2)}</Text>
-            </View>
-          )}
+            ) : (
+              <View style={styles.fila}>
+                <View style={styles.info}>
+                  <Text style={styles.nombre} numberOfLines={2}>
+                    {item.nombre || '(sin nombre)'}
+                  </Text>
+                  <Text style={styles.precioUnit}>${item.precio.toFixed(2)} c/u</Text>
+                </View>
+                <View style={styles.controles}>
+                  <TouchableOpacity
+                    style={styles.botonCantidad}
+                    onPress={() => cambiarCantidad(item.id, item.cantidad - 1)}>
+                    <Text style={styles.botonCantidadTexto}>−</Text>
+                  </TouchableOpacity>
+                  <Text style={styles.cantidad}>{item.cantidad}</Text>
+                  <TouchableOpacity
+                    style={styles.botonCantidad}
+                    onPress={() => cambiarCantidad(item.id, item.cantidad + 1)}>
+                    <Text style={styles.botonCantidadTexto}>+</Text>
+                  </TouchableOpacity>
+                </View>
+                <Text style={styles.subtotal}>${(item.precio * item.cantidad).toFixed(2)}</Text>
+              </View>
+            )
+          }
         />
       )}
 
@@ -320,10 +324,8 @@ export default function CarritoScreen({navigation}) {
                         {item.nombre || '(sin nombre)'}
                       </Text>
                       <Text style={styles.opcionPrecio}>
-                        {item.tipo === 'peso'
+                        {item.tipo === 'peso' || item.tipo === 'importe'
                           ? `$${Number(item.precio).toFixed(2)}/kg`
-                          : item.tipo === 'importe'
-                          ? 'por importe'
                           : `$${Number(item.precio).toFixed(2)}`}
                       </Text>
                     </TouchableOpacity>
@@ -355,9 +357,7 @@ export default function CarritoScreen({navigation}) {
                   </>
                 ) : (
                   <>
-                    <Text style={styles.modalSubtitulo}>
-                      {tipoNuevo === 'peso' ? 'Nombre y precio por kg' : 'Nombre del producto'}
-                    </Text>
+                    <Text style={styles.modalSubtitulo}>Nombre y precio por kg</Text>
 
                     <TextInput
                       style={styles.input}
@@ -368,15 +368,18 @@ export default function CarritoScreen({navigation}) {
                       autoFocus
                     />
 
-                    {tipoNuevo === 'peso' && (
-                      <TextInput
-                        style={[styles.input, styles.inputConMargen]}
-                        placeholder="Precio por kg, ej. 150.00"
-                        placeholderTextColor="#9E9E9E"
-                        keyboardType="decimal-pad"
-                        value={precioKgCrear}
-                        onChangeText={setPrecioKgCrear}
-                      />
+                    <TextInput
+                      style={[styles.input, styles.inputConMargen]}
+                      placeholder="Precio por kg, ej. 150.00"
+                      placeholderTextColor="#9E9E9E"
+                      keyboardType="decimal-pad"
+                      value={precioKgCrear}
+                      onChangeText={setPrecioKgCrear}
+                    />
+                    {tipoNuevo === 'importe' && (
+                      <Text style={styles.notaImporte}>
+                        Es solo de referencia: al vender se pedirá el importe directo (ej. $30).
+                      </Text>
                     )}
 
                     <View style={styles.modalBotones}>
@@ -490,6 +493,9 @@ const styles = StyleSheet.create({
   vacioTexto: {fontSize: 22, color: '#9E9E9E'},
   lista: {padding: 16, paddingBottom: 8},
   fila: {flexDirection: 'row', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1, borderColor: '#EEEEEE'},
+  filaLineaUnica: {flex: 1, fontSize: 17, color: '#000000', fontWeight: '600', marginRight: 10},
+  botonQuitar: {width: 36, height: 36, borderRadius: 18, backgroundColor: '#FFEBEE', alignItems: 'center', justifyContent: 'center'},
+  botonQuitarTexto: {color: '#C62828', fontSize: 18, fontWeight: 'bold'},
   info: {flex: 1, marginRight: 8},
   nombre: {fontSize: 18, color: '#000000', fontWeight: '600'},
   precioUnit: {fontSize: 15, color: '#666666', marginTop: 2},
@@ -524,6 +530,7 @@ const styles = StyleSheet.create({
   modalSubtitulo: {fontSize: 15, color: '#666', textAlign: 'center', marginBottom: 16},
   input: {fontSize: 20, borderWidth: 2, borderColor: '#2196F3', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, color: '#000'},
   inputConMargen: {marginTop: 10},
+  notaImporte: {fontSize: 13, color: '#666', textAlign: 'center', marginTop: 8},
   sinResultados: {fontSize: 16, color: '#9E9E9E', textAlign: 'center', marginTop: 16},
   botonCrearNuevo: {backgroundColor: '#009688', borderRadius: 10, paddingVertical: 14, alignItems: 'center', marginTop: 12},
   listaOpciones: {maxHeight: 280, marginTop: 8},

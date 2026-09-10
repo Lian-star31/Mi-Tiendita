@@ -15,6 +15,7 @@ import {
 import {useFocusEffect} from '@react-navigation/native';
 import {buscarProducto, buscarProductoPorNombreExacto, crearProductoSinCodigo} from '../db/database';
 import {useCarrito} from '../context/CarritoContext';
+import {normalizarNombreProducto} from '../utils/normalizarNombre';
 
 const CM = 38;
 const LADO_BOTON = Math.min(15 * CM, Dimensions.get('window').width - 40);
@@ -78,7 +79,8 @@ export default function HomeScreen({navigation}) {
       return;
     }
     try {
-      const existente = await buscarProductoPorNombreExacto(nombreNuevo.trim());
+      const nombre = normalizarNombreProducto(nombreNuevo);
+      const existente = await buscarProductoPorNombreExacto(nombre);
       if (existente) {
         setModalNuevo(false);
         Alert.alert(
@@ -91,7 +93,7 @@ export default function HomeScreen({navigation}) {
         );
         return;
       }
-      await crearProductoSinCodigo({nombre: nombreNuevo.trim(), precio});
+      await crearProductoSinCodigo({nombre, precio});
       setModalNuevo(false);
       Alert.alert('Producto guardado');
     } catch (e) {

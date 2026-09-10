@@ -172,8 +172,10 @@ export async function insertarProducto({codigo, nombre, precio}) {
 
 // Crea un producto sin código de barras (ej. producto a granel).
 // Se puede buscar luego por nombre y agregar al carrito sin escanear.
-// tipo: 'unidad' (precio fijo, comportamiento de siempre), 'peso'
-// (precio es por kg) o 'importe' (sin precio fijo, precio se ignora).
+// tipo: 'unidad' (precio fijo, comportamiento de siempre), 'peso' (precio
+// por kg, se vende capturando los kg) o 'importe' (precio por kg es solo
+// de referencia; se vende capturando directamente el monto que pide el
+// cliente, sin mostrar ni calcular el peso equivalente).
 export async function crearProductoSinCodigo({nombre, precio, tipo = 'unidad'}) {
   const db = await getDBConnection();
   const [result] = await db.executeSql(
