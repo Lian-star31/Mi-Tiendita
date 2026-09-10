@@ -184,3 +184,15 @@ export async function crearProductoSinCodigo({nombre, precio, tipo = 'unidad'}) 
   );
   return {id: result.insertId, codigo_barras: null, nombre, precio: Number(precio) || 0, stock: 0, tipo};
 }
+
+// Cambia el tipo de venta y precio de referencia de un producto que ya
+// existe (ej. uno guardado antes como 'unidad' y ahora se quiere vender
+// por peso o por importe). No toca el código de barras ni el nombre.
+export async function actualizarTipoProducto(id, {precio, tipo}) {
+  const db = await getDBConnection();
+  await db.executeSql(
+    'UPDATE PRODUCTOS SET precio = ?, tipo = ? WHERE id = ?;',
+    [Number(precio) || 0, tipo, id],
+  );
+  return {id, precio: Number(precio) || 0, tipo};
+}

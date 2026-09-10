@@ -1,7 +1,12 @@
 import React, {useEffect, useState} from 'react';
 import {Alert, FlatList, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View} from 'react-native';
 import {useCarrito} from '../context/CarritoContext';
-import {buscarProductoPorNombreExacto, buscarProductosPorNombre, crearProductoSinCodigo} from '../db/database';
+import {
+  actualizarTipoProducto,
+  buscarProductoPorNombreExacto,
+  buscarProductosPorNombre,
+  crearProductoSinCodigo,
+} from '../db/database';
 import {normalizarNombreProducto} from '../utils/normalizarNombre';
 
 export default function CarritoScreen({navigation}) {
@@ -77,11 +82,21 @@ export default function CarritoScreen({navigation}) {
       const nombre = normalizarNombreProducto(nombreCrear);
       const existente = await buscarProductoPorNombreExacto(nombre);
       if (existente) {
+        const tipoActualTexto =
+          existente.tipo === 'peso' ? 'por peso' : existente.tipo === 'importe' ? 'por importe' : 'precio fijo';
+        const tipoNuevoTexto = tipoNuevo === 'peso' ? 'por peso' : 'por importe';
         Alert.alert(
           'Producto existente',
-          `"${existente.nombre}" ya está guardado.`,
+          `"${existente.nombre}" ya está guardado como ${tipoActualTexto} ($${Number(existente.precio).toFixed(2)}).`,
           [
-            {text: 'Vender ese', onPress: () => irAVender(existente)},
+            {
+              text: `Cambiar a ${tipoNuevoTexto} y vender`,
+              onPress: async () => {
+                await actualizarTipoProducto(existente.id, {precio: precioKg, tipo: tipoNuevo});
+                irAVender({...existente, precio: precioKg, tipo: tipoNuevo});
+              },
+            },
+            {text: 'Vender como está', onPress: () => irAVender(existente)},
             {text: 'Cancelar', style: 'cancel'},
           ],
         );
@@ -305,12 +320,7 @@ export default function CarritoScreen({navigation}) {
                 />
 
                 {busquedaProducto.trim().length >= 2 && resultadosProducto.length === 0 && (
-                  <>
-                    <Text style={styles.sinResultados}>Sin resultados</Text>
-                    <TouchableOpacity style={styles.botonCrearNuevo} onPress={irACrear}>
-                      <Text style={styles.botonTexto}>CREAR PRODUCTO NUEVO</Text>
-                    </TouchableOpacity>
-                  </>
+                  <Text style={styles.sinResultados}>Sin resultados</Text>
                 )}
 
                 <FlatList
@@ -320,9 +330,14 @@ export default function CarritoScreen({navigation}) {
                   keyboardShouldPersistTaps="handled"
                   renderItem={({item}) => (
                     <TouchableOpacity style={styles.opcionFila} onPress={() => seleccionarExistente(item)}>
-                      <Text style={styles.opcionNombre} numberOfLines={2}>
-                        {item.nombre || '(sin nombre)'}
-                      </Text>
+                      <View style={styles.opcionInfo}>
+                        <Text style={styles.opcionNombre} numberOfLines={2}>
+                          {item.nombre || '(sin nombre)'}
+                        </Text>
+                        <Text style={styles.opcionTipo}>
+                          {item.tipo === 'peso' ? 'por peso' : item.tipo === 'importe' ? 'por importe' : 'precio fijo'}
+                        </Text>
+                      </View>
                       <Text style={styles.opcionPrecio}>
                         {item.tipo === 'peso' || item.tipo === 'importe'
                           ? `$${Number(item.precio).toFixed(2)}/kg`
@@ -331,6 +346,14 @@ export default function CarritoScreen({navigation}) {
                     </TouchableOpacity>
                   )}
                 />
+
+                {busquedaProducto.trim().length >= 2 && (
+                  <TouchableOpacity style={styles.botonCrearNuevo} onPress={irACrear}>
+                    <Text style={styles.botonTexto}>
+                      {resultadosProducto.length === 0 ? 'CREAR PRODUCTO NUEVO' : 'CREAR / CAMBIAR TIPO'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
 
                 <TouchableOpacity style={styles.botonCancelarOpciones} onPress={cerrarAgregarProducto}>
                   <Text style={styles.botonTexto}>CANCELAR</Text>
@@ -535,7 +558,9 @@ const styles = StyleSheet.create({
   botonCrearNuevo: {backgroundColor: '#009688', borderRadius: 10, paddingVertical: 14, alignItems: 'center', marginTop: 12},
   listaOpciones: {maxHeight: 280, marginTop: 8},
   opcionFila: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 4, borderBottomWidth: 1, borderColor: '#EEEEEE'},
-  opcionNombre: {fontSize: 18, color: '#000', flex: 1, marginRight: 10},
+  opcionInfo: {flex: 1, marginRight: 10},
+  opcionNombre: {fontSize: 18, color: '#000'},
+  opcionTipo: {fontSize: 13, color: '#888', marginTop: 2},
   opcionPrecio: {fontSize: 18, color: '#2196F3', fontWeight: 'bold'},
   botonCancelarOpciones: {backgroundColor: '#9E9E9E', borderRadius: 10, paddingVertical: 14, alignItems: 'center', marginTop: 16},
   botonTipo: {backgroundColor: '#2196F3', borderRadius: 10, paddingVertical: 18, alignItems: 'center', marginBottom: 12},
