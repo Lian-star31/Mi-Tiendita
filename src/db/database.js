@@ -1,5 +1,6 @@
 import SQLite from 'react-native-sqlite-storage';
 import {PRODUCTOS_SEED} from './seedData';
+import {normalizarNombreProducto} from '../utils/normalizarNombre';
 
 SQLite.enablePromise(true);
 SQLite.DEBUG(false);
@@ -72,16 +73,21 @@ export async function initDatabase() {
   // Corrección de tipos conocidos: productos que la tienda vende por importe
   // o por peso, pero que quedaron como 'unidad' por la migración inicial.
   // Solo actualiza los que siguen en 'unidad' para no pisar cambios manuales.
-  const TIPOS_CORRECTOS = [
-    {nombres: ['Jamón', 'Jamon', 'Huevo', 'Queso'], tipo: 'importe'},
-    {nombres: ['Azúcar', 'Azucar'], tipo: 'peso'},
-  ];
-  for (const {nombres, tipo} of TIPOS_CORRECTOS) {
-    for (const nombre of nombres) {
-      await db.executeSql(
-        `UPDATE PRODUCTOS SET tipo = ? WHERE nombre = ? COLLATE NOCASE AND tipo = 'unidad';`,
-        [tipo, nombre],
-      );
+  const tiposLegado = {
+    Jamón: 'importe',
+    Huevo: 'importe',
+    Queso: 'importe',
+    Azúcar: 'peso',
+  };
+  const [productosLegado] = await db.executeSql(
+    `SELECT id, nombre, tipo FROM PRODUCTOS WHERE tipo = 'unidad' OR tipo IS NULL;`,
+  );
+  for (let i = 0; i < productosLegado.rows.length; i++) {
+    const producto = productosLegado.rows.item(i);
+    const nombreCanonico = normalizarNombreProducto(producto.nombre);
+    const tipo = tiposLegado[nombreCanonico];
+    if (tipo) {
+      await db.executeSql('UPDATE PRODUCTOS SET tipo = ? WHERE id = ?;', [tipo, producto.id]);
     }
   }
 }
@@ -140,11 +146,14 @@ export async function buscarProducto(texto) {
 // Se usa para evitar crear duplicados al dar de alta un producto sin código.
 export async function buscarProductoPorNombreExacto(nombre) {
   const db = await getDBConnection();
+  const termino = normalizarNombreProducto(nombre);
   const [result] = await db.executeSql(
-    'SELECT * FROM PRODUCTOS WHERE nombre = ? COLLATE NOCASE LIMIT 1;',
-    [String(nombre).trim()],
+    'SELECT * FROM PRODUCTOS ORDER BY id;',
   );
-  if (result.rows.length > 0) return result.rows.item(0);
+  for (let i = 0; i < result.rows.length; i++) {
+    const producto = result.rows.item(i);
+    if (normalizarNombreProducto(producto.nombre) === termino) return producto;
+  }
   return null;
 }
 
@@ -179,7 +188,7 @@ export async function actualizarPrecio(id, nuevoPrecio) {
 export async function insertarProducto({codigo, nombre, precio}) {
   const db = await getDBConnection();
   await db.executeSql(
-    `INSERT INTO PRODUCTOS (codigo_barras, nombre, precio, stock) VALUES (?, ?, ?, 0)
+    `INSERT INTO PRODUCTOS (codigo_barras, nombre, precio, stock, tipo) VALUES (?, ?, ?, 0, 'unidad')
      ON CONFLICT(codigo_barras) DO UPDATE SET nombre = excluded.nombre, precio = excluded.precio;`,
     [String(codigo).trim(), nombre, Number(precio)],
   );

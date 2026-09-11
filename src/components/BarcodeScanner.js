@@ -49,9 +49,17 @@ export default function BarcodeScanner({navigation}) {
     try {
       const producto = await getProductoPorCodigo(data);
       if (producto) {
-        agregarProducto(producto);
+        if (producto.tipo === 'peso' || producto.tipo === 'importe') {
+          navigation.navigate('Carrito', {productoParaVenta: producto});
+        } else {
+          agregarProducto(producto);
+        }
         setAviso(producto);
-        setMensaje('✓ Agregado al carrito');
+        setMensaje(
+          producto.tipo === 'peso' || producto.tipo === 'importe'
+            ? 'Selecciona la cantidad en el carrito'
+            : '✓ Agregado al carrito',
+        );
         liberarTrasCooldown();
       } else {
         // Pausa el escaneo y pide datos, sin perder lo ya escaneado.

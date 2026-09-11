@@ -13,7 +13,12 @@ import {
   View,
 } from 'react-native';
 import {useFocusEffect} from '@react-navigation/native';
-import {buscarProducto, buscarProductoPorNombreExacto, crearProductoSinCodigo} from '../db/database';
+import {
+  actualizarTipoProducto,
+  buscarProducto,
+  buscarProductoPorNombreExacto,
+  crearProductoSinCodigo,
+} from '../db/database';
 import {useCarrito} from '../context/CarritoContext';
 import {normalizarNombreProducto} from '../utils/normalizarNombre';
 
@@ -26,6 +31,7 @@ export default function HomeScreen({navigation}) {
   const [modalNuevo, setModalNuevo] = useState(false);
   const [nombreNuevo, setNombreNuevo] = useState('');
   const [precioNuevo, setPrecioNuevo] = useState('');
+  const [tipoNuevo, setTipoNuevo] = useState('unidad');
   const [opciones, setOpciones] = useState(null);
 
   // Inicio siempre debe quedar limpio, sin importar de dónde se venga
@@ -38,6 +44,7 @@ export default function HomeScreen({navigation}) {
       setModalNuevo(false);
       setNombreNuevo('');
       setPrecioNuevo('');
+      setTipoNuevo('unidad');
     }, []),
   );
 
@@ -65,6 +72,7 @@ export default function HomeScreen({navigation}) {
   const abrirNuevoProducto = () => {
     setNombreNuevo('');
     setPrecioNuevo('');
+    setTipoNuevo('unidad');
     setModalNuevo(true);
   };
 
@@ -83,17 +91,11 @@ export default function HomeScreen({navigation}) {
       const existente = await buscarProductoPorNombreExacto(nombre);
       if (existente) {
         setModalNuevo(false);
-        Alert.alert(
-          'Producto existente',
-          `"${existente.nombre}" ya está guardado con precio $${Number(existente.precio).toFixed(2)}.`,
-          [
-            {text: 'Ver / Editar', onPress: () => navigation.navigate('Result', {producto: existente})},
-            {text: 'Cerrar', style: 'cancel'},
-          ],
-        );
+        await actualizarTipoProducto(existente.id, {precio, tipo: tipoNuevo});
+        Alert.alert('Producto actualizado', `"${existente.nombre}" se guardó sin crear un duplicado.`);
         return;
       }
-      await crearProductoSinCodigo({nombre, precio});
+      await crearProductoSinCodigo({nombre, precio, tipo: tipoNuevo});
       setModalNuevo(false);
       Alert.alert('Producto guardado');
     } catch (e) {
@@ -155,6 +157,22 @@ export default function HomeScreen({navigation}) {
           <View style={styles.modalCard}>
             <Text style={styles.modalTitulo}>Nuevo producto</Text>
 
+            <Text style={styles.modalEtiqueta}>¿Cómo se vende?</Text>
+            <View style={styles.tipoBotones}>
+              {[
+                {tipo: 'unidad', texto: 'POR PIEZA'},
+                {tipo: 'peso', texto: 'POR PESO'},
+                {tipo: 'importe', texto: 'POR IMPORTE'},
+              ].map(opcion => (
+                <TouchableOpacity
+                  key={opcion.tipo}
+                  style={[styles.tipoBoton, tipoNuevo === opcion.tipo && styles.tipoBotonSeleccionado]}
+                  onPress={() => setTipoNuevo(opcion.tipo)}>
+                  <Text style={styles.tipoBotonTexto}>{opcion.texto}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
             <Text style={styles.modalEtiqueta}>Nombre:</Text>
             <TextInput
               style={styles.input}
@@ -165,10 +183,12 @@ export default function HomeScreen({navigation}) {
               autoFocus
             />
 
-            <Text style={styles.modalEtiqueta}>Precio:</Text>
+            <Text style={styles.modalEtiqueta}>
+              {tipoNuevo === 'unidad' ? 'Precio por pieza:' : 'Precio de referencia por kg:'}
+            </Text>
             <TextInput
               style={styles.input}
-              placeholder="Ej. 28.00"
+              placeholder={tipoNuevo === 'unidad' ? 'Ej. 28.00' : 'Ej. 160.00'}
               placeholderTextColor="#9E9E9E"
               value={precioNuevo}
               onChangeText={setPrecioNuevo}
@@ -246,6 +266,10 @@ const styles = StyleSheet.create({
   modalTitulo: { fontSize: 24, fontWeight: 'bold', color: '#000', marginBottom: 8, textAlign: 'center' },
   modalEtiqueta: { fontSize: 16, color: '#333', marginBottom: 6, marginTop: 10 },
   input: { fontSize: 20, borderWidth: 2, borderColor: '#2196F3', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, color: '#000' },
+  tipoBotones: {gap: 8},
+  tipoBoton: {backgroundColor: '#90CAF9', borderRadius: 10, paddingVertical: 11, alignItems: 'center'},
+  tipoBotonSeleccionado: {backgroundColor: '#1565C0'},
+  tipoBotonTexto: {color: '#FFFFFF', fontSize: 16, fontWeight: 'bold'},
   modalBotones: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 22 },
   modalBoton: { flex: 1, borderRadius: 10, paddingVertical: 14, alignItems: 'center', paddingHorizontal: 4 },
   modalCancelar: { backgroundColor: '#FF5252', marginRight: 8 },

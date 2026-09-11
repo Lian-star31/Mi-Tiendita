@@ -8,7 +8,7 @@ import {
 } from '../db/database';
 import {normalizarNombreProducto} from '../utils/normalizarNombre';
 
-export default function CarritoScreen({navigation}) {
+export default function CarritoScreen({navigation, route}) {
   const {items, agregarProducto, cambiarCantidad, vaciarCarrito, total, cantidadTotal} = useCarrito();
   const [cobrando, setCobrando] = useState(false);
   const [efectivo, setEfectivo] = useState('');
@@ -66,6 +66,16 @@ export default function CarritoScreen({navigation}) {
     setMontoVenta('');
     setPaso('vender');
   };
+
+  // Las entradas de venta desde escáner o búsqueda manual también deben
+  // respetar el tipo guardado; solo los productos por pieza se agregan solos.
+  useEffect(() => {
+    const producto = route?.params?.productoParaVenta;
+    if (producto) {
+      irAVender(producto);
+      navigation.setParams({productoParaVenta: null});
+    }
+  }, [navigation, route?.params?.productoParaVenta]);
 
   const guardarNuevoManual = async () => {
     if (!nombreCrear.trim()) {
@@ -322,8 +332,10 @@ export default function CarritoScreen({navigation}) {
                         </Text>
                       </View>
                       <Text style={styles.opcionPrecio}>
-                        {item.tipo === 'peso' || item.tipo === 'importe'
+                        {item.tipo === 'peso'
                           ? `$${Number(item.precio).toFixed(2)}/kg`
+                          : item.tipo === 'importe'
+                          ? `$${Number(item.precio).toFixed(2)} referencia`
                           : `$${Number(item.precio).toFixed(2)}`}
                       </Text>
                     </TouchableOpacity>

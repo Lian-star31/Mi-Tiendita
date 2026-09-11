@@ -54,6 +54,10 @@ export default function ResultScreen({route, navigation}) {
   };
 
   const onAgregarAlCarrito = () => {
+    if (producto.tipo === 'peso' || producto.tipo === 'importe') {
+      navigation.navigate('Carrito', {productoParaVenta: producto});
+      return;
+    }
     agregarProducto(producto);
     navigation.navigate('Carrito');
   };
