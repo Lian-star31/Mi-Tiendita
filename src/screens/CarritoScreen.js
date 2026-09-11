@@ -2,7 +2,6 @@ import React, {useEffect, useState} from 'react';
 import {Alert, FlatList, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View} from 'react-native';
 import {useCarrito} from '../context/CarritoContext';
 import {
-  actualizarTipoProducto,
   buscarProductoPorNombreExacto,
   buscarProductosPorNombre,
   crearProductoSinCodigo,
@@ -82,24 +81,8 @@ export default function CarritoScreen({navigation}) {
       const nombre = normalizarNombreProducto(nombreCrear);
       const existente = await buscarProductoPorNombreExacto(nombre);
       if (existente) {
-        const tipoActualTexto =
-          existente.tipo === 'peso' ? 'por peso' : existente.tipo === 'importe' ? 'por importe' : 'precio fijo';
-        const tipoNuevoTexto = tipoNuevo === 'peso' ? 'por peso' : 'por importe';
-        Alert.alert(
-          'Producto existente',
-          `"${existente.nombre}" ya está guardado como ${tipoActualTexto} ($${Number(existente.precio).toFixed(2)}).`,
-          [
-            {
-              text: `Cambiar a ${tipoNuevoTexto} y vender`,
-              onPress: async () => {
-                await actualizarTipoProducto(existente.id, {precio: precioKg, tipo: tipoNuevo});
-                irAVender({...existente, precio: precioKg, tipo: tipoNuevo});
-              },
-            },
-            {text: 'Vender como está', onPress: () => irAVender(existente)},
-            {text: 'Cancelar', style: 'cancel'},
-          ],
-        );
+        // Ya existe: ir directamente a vender con los datos guardados en SQLite
+        irAVender(existente);
         return;
       }
       const producto = await crearProductoSinCodigo({nombre, precio: precioKg, tipo: tipoNuevo});
@@ -347,11 +330,9 @@ export default function CarritoScreen({navigation}) {
                   )}
                 />
 
-                {busquedaProducto.trim().length >= 2 && (
+                {busquedaProducto.trim().length >= 2 && resultadosProducto.length === 0 && (
                   <TouchableOpacity style={styles.botonCrearNuevo} onPress={irACrear}>
-                    <Text style={styles.botonTexto}>
-                      {resultadosProducto.length === 0 ? 'CREAR PRODUCTO NUEVO' : 'CREAR / CAMBIAR TIPO'}
-                    </Text>
+                    <Text style={styles.botonTexto}>CREAR PRODUCTO NUEVO</Text>
                   </TouchableOpacity>
                 )}
 
