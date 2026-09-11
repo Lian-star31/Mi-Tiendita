@@ -68,6 +68,22 @@ export async function initDatabase() {
   } catch (e) {
     // La columna ya existe; no hay nada que hacer.
   }
+
+  // Corrección de tipos conocidos: productos que la tienda vende por importe
+  // o por peso, pero que quedaron como 'unidad' por la migración inicial.
+  // Solo actualiza los que siguen en 'unidad' para no pisar cambios manuales.
+  const TIPOS_CORRECTOS = [
+    {nombres: ['Jamón', 'Jamon', 'Huevo', 'Queso'], tipo: 'importe'},
+    {nombres: ['Azúcar', 'Azucar'], tipo: 'peso'},
+  ];
+  for (const {nombres, tipo} of TIPOS_CORRECTOS) {
+    for (const nombre of nombres) {
+      await db.executeSql(
+        `UPDATE PRODUCTOS SET tipo = ? WHERE nombre = ? COLLATE NOCASE AND tipo = 'unidad';`,
+        [tipo, nombre],
+      );
+    }
+  }
 }
 
 export async function getProductoPorCodigo(codigo) {
