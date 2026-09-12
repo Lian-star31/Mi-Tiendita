@@ -11,6 +11,7 @@ import {
 import {RNCamera} from 'react-native-camera';
 import {getProductoPorCodigo, insertarProducto} from '../db/database';
 import {useCarrito} from '../context/CarritoContext';
+import {esProductoVariable} from '../domain/venta';
 import EditPriceModal from '../screens/EditPriceModal';
 
 const COOLDOWN_MS = 1500;
@@ -49,17 +50,13 @@ export default function BarcodeScanner({navigation}) {
     try {
       const producto = await getProductoPorCodigo(data);
       if (producto) {
-        if (producto.tipo === 'peso' || producto.tipo === 'importe') {
+        if (esProductoVariable(producto)) {
           navigation.navigate('Carrito', {productoParaVenta: producto});
         } else {
-          agregarProducto(producto);
+          agregarProducto(producto, 1);
         }
         setAviso(producto);
-        setMensaje(
-          producto.tipo === 'peso' || producto.tipo === 'importe'
-            ? 'Selecciona la cantidad en el carrito'
-            : '✓ Agregado al carrito',
-        );
+        setMensaje(esProductoVariable(producto) ? 'Selecciona la cantidad en el carrito' : '✓ Agregado al carrito');
         liberarTrasCooldown();
       } else {
         // Pausa el escaneo y pide datos, sin perder lo ya escaneado.
@@ -95,7 +92,7 @@ export default function BarcodeScanner({navigation}) {
         nombre: nombreNuevo.trim(),
         precio,
       });
-      agregarProducto(producto);
+      agregarProducto(producto, 1);
       setAviso(producto);
       setCodigoNuevo(null);
       setMensaje('✓ Agregado al carrito');

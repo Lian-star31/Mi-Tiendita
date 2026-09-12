@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react';
+import React, {useCallback, useEffect, useState} from 'react';
 import {Alert, FlatList, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View} from 'react-native';
 import {useCarrito} from '../context/CarritoContext';
 import {
@@ -7,6 +7,7 @@ import {
   crearProductoSinCodigo,
 } from '../db/database';
 import {normalizarNombreProducto} from '../utils/normalizarNombre';
+import {obtenerTipoProducto} from '../domain/venta';
 
 export default function CarritoScreen({navigation, route}) {
   const {items, agregarProducto, cambiarCantidad, vaciarCarrito, total, cantidadTotal} = useCarrito();
@@ -42,17 +43,6 @@ export default function CarritoScreen({navigation, route}) {
 
   const cerrarAgregarProducto = () => setModalAgregar(false);
 
-  // Seleccionar un producto ya existente en la búsqueda
-  const seleccionarExistente = producto => {
-    if (producto.tipo === 'peso' || producto.tipo === 'importe') {
-      irAVender(producto);
-    } else {
-      // 'unidad': mismo comportamiento de siempre, se agrega directo
-      agregarProducto(producto);
-      cerrarAgregarProducto();
-    }
-  };
-
   const irACrear = () => {
     setTipoNuevo(null);
     setNombreCrear(busquedaProducto.trim());
@@ -60,22 +50,29 @@ export default function CarritoScreen({navigation, route}) {
     setPaso('crear');
   };
 
-  const irAVender = producto => {
+  const procesarProductoSeleccionado = useCallback(producto => {
+    const tipo = obtenerTipoProducto(producto);
+    if (tipo === 'unidad') {
+      agregarProducto(producto, 1);
+      setModalAgregar(false);
+      return;
+    }
     setProductoVenta(producto);
     setKgVenta('');
     setMontoVenta('');
     setPaso('vender');
-  };
+    setModalAgregar(true);
+  }, [agregarProducto]);
 
   // Las entradas de venta desde escáner o búsqueda manual también deben
   // respetar el tipo guardado; solo los productos por pieza se agregan solos.
   useEffect(() => {
     const producto = route?.params?.productoParaVenta;
     if (producto) {
-      irAVender(producto);
+      procesarProductoSeleccionado(producto);
       navigation.setParams({productoParaVenta: null});
     }
-  }, [navigation, route?.params?.productoParaVenta]);
+  }, [navigation, procesarProductoSeleccionado, route?.params?.productoParaVenta]);
 
   const guardarNuevoManual = async () => {
     if (!nombreCrear.trim()) {
@@ -91,12 +88,12 @@ export default function CarritoScreen({navigation, route}) {
       const nombre = normalizarNombreProducto(nombreCrear);
       const existente = await buscarProductoPorNombreExacto(nombre);
       if (existente) {
-        // Ya existe: ir directamente a vender con los datos guardados en SQLite
-        irAVender(existente);
+        // Ya existe: vender el registro guardado, sin pedir nombre o precio.
+        procesarProductoSeleccionado(existente);
         return;
       }
       const producto = await crearProductoSinCodigo({nombre, precio: precioKg, tipo: tipoNuevo});
-      irAVender(producto);
+      procesarProductoSeleccionado(producto);
     } catch (e) {
       Alert.alert('Error', 'No se pudo guardar el producto: ' + e.message);
     }
@@ -120,10 +117,7 @@ export default function CarritoScreen({navigation, route}) {
     }
     // Cada venta por importe es su propia línea (aunque sea el mismo
     // producto), porque el monto puede ser distinto cada vez.
-    agregarProducto(
-      {...productoVenta, id: `${productoVenta.id}-${Date.now()}`, precio: monto},
-      1,
-    );
+    agregarProducto(productoVenta, monto);
     cerrarAgregarProducto();
   };
 
@@ -190,8 +184,8 @@ export default function CarritoScreen({navigation, route}) {
               <View style={styles.fila}>
                 <Text style={styles.filaLineaUnica} numberOfLines={1}>
                   {item.tipo === 'peso'
-                    ? `${item.nombre || '(sin nombre)'} — ${item.cantidad.toFixed(3)} kg — $${(item.precio * item.cantidad).toFixed(2)}`
-                    : `${item.nombre || '(sin nombre)'} — $${item.precio.toFixed(2)}`}
+                    ? `${item.nombre || '(sin nombre)'} — ${item.cantidadKg.toFixed(3)} kg — $${item.subtotal.toFixed(2)}`
+                    : `${item.nombre || '(sin nombre)'} — $${item.importe.toFixed(2)}`}
                 </Text>
                 <TouchableOpacity
                   style={styles.botonQuitar}
@@ -205,7 +199,7 @@ export default function CarritoScreen({navigation, route}) {
                   <Text style={styles.nombre} numberOfLines={2}>
                     {item.nombre || '(sin nombre)'}
                   </Text>
-                  <Text style={styles.precioUnit}>${item.precio.toFixed(2)} c/u</Text>
+                  <Text style={styles.precioUnit}>${item.precioUnitario.toFixed(2)} c/u</Text>
                 </View>
                 <View style={styles.controles}>
                   <TouchableOpacity
@@ -220,7 +214,7 @@ export default function CarritoScreen({navigation, route}) {
                     <Text style={styles.botonCantidadTexto}>+</Text>
                   </TouchableOpacity>
                 </View>
-                <Text style={styles.subtotal}>${(item.precio * item.cantidad).toFixed(2)}</Text>
+                <Text style={styles.subtotal}>${item.subtotal.toFixed(2)}</Text>
               </View>
             )
           }
@@ -322,7 +316,7 @@ export default function CarritoScreen({navigation, route}) {
                   keyExtractor={item => String(item.id)}
                   keyboardShouldPersistTaps="handled"
                   renderItem={({item}) => (
-                    <TouchableOpacity style={styles.opcionFila} onPress={() => seleccionarExistente(item)}>
+                    <TouchableOpacity style={styles.opcionFila} onPress={() => procesarProductoSeleccionado(item)}>
                       <View style={styles.opcionInfo}>
                         <Text style={styles.opcionNombre} numberOfLines={2}>
                           {item.nombre || '(sin nombre)'}

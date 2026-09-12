@@ -22,13 +22,11 @@ import {
 } from 'react-native';
 
 import EditPriceModal from './EditPriceModal';
-import {useCarrito} from '../context/CarritoContext';
 
 export default function ResultScreen({route, navigation}) {
   // El producto llega por parámetros de navegación (desde Home o Scanner).
   const [producto, setProducto] = useState(route.params?.producto);
   const [modalVisible, setModalVisible] = useState(false);
-  const {agregarProducto} = useCarrito();
 
   // Salvaguarda por si se llega sin producto.
   if (!producto) {
@@ -54,12 +52,9 @@ export default function ResultScreen({route, navigation}) {
   };
 
   const onAgregarAlCarrito = () => {
-    if (producto.tipo === 'peso' || producto.tipo === 'importe') {
-      navigation.navigate('Carrito', {productoParaVenta: producto});
-      return;
-    }
-    agregarProducto(producto);
-    navigation.navigate('Carrito');
+    // Carrito es el único dueño del flujo: pieza, peso e importe pasan por
+    // la misma resolución de tipo y captura de venta.
+    navigation.navigate('Carrito', {productoParaVenta: producto});
   };
 
   return (

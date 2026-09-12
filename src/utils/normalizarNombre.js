@@ -24,6 +24,8 @@ const DICCIONARIO = {
   vinagre: 'Vinagre', catsup: 'Catsup', mostaza: 'Mostaza', yogurt: 'Yogurt',
   cereal: 'Cereal', pasta: 'Pasta', sopa: 'Sopa', atun: 'Atún', jugo: 'Jugo',
   agua: 'Agua', vino: 'Vino', pastel: 'Pastel', panque: 'Panqué',
+  k: 'k', kg: 'kg', kilo: 'kilo', kilos: 'kilos',
+  huebo: 'Huevo', huevoo: 'Huevo',
 };
 
 const RANGO_ACENTOS = new RegExp('[̀-ͯ]', 'g');
@@ -46,4 +48,18 @@ export function normalizarNombreProducto(textoOriginal) {
       return palabra.charAt(0).toUpperCase() + palabra.slice(1).toLowerCase();
     })
     .join(' ');
+}
+
+// Clave estable para buscar y garantizar unicidad únicamente en productos
+// sin código. No se usa para decidir que dos SKUs con códigos distintos sean
+// el mismo producto.
+export function normalizarClaveProducto(textoOriginal) {
+  const nombre = normalizarNombreProducto(textoOriginal);
+  const sinAcentos = quitarAcentos(nombre).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+
+  // En granel, estas formas representan el mismo producto lógico. La clave
+  // se usa solo cuando codigo_barras es NULL.
+  if (/^huevo(?:\s+1\s*(?:k|kg|kilo))?$/.test(sinAcentos)) return 'huevo';
+
+  return sinAcentos.replace(/\s+/g, ' ');
 }
